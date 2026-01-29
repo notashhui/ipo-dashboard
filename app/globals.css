@@ -1,6 +1,52 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+/* Global mobile fix - prevent wide layout on small viewports */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+#root,
+.App,
+[class*="page"],
+[class*="Page"],
+[class*="container"],
+[class*="Container"] {
+  width: 100%;
+  max-width: 100vw;
+}
+
+@media (max-width: 768px) {
+  html,
+  body,
+  #root,
+  .App,
+  [class*="page"],
+  [class*="Page"],
+  [class*="container"],
+  [class*="Container"] {
+    width: 100% !important;
+    max-width: 100vw !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}
+
+/* Next.js portal: reset position (override runtime 0px) */
+nextjs-portal {
+  left: unset;
+  top: unset;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
@@ -138,4 +184,54 @@
   --trade-up: #F04438;
   --trade-down: #2E6BE6;
   --trade-neutral: #10b981;
+}
+
+/* Fix main with min-w-[1024px] causing wide layout on mobile */
+@media (max-width: 1023px) {
+  main,
+  main[class*='min-w'] {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+}
+
+/* Stock detail page: prevent wide layout (fix 1024px div) */
+.stock-detail-page,
+.stock-detail-container {
+  width: 100% !important;
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+}
+
+.stock-detail-page > *,
+.stock-detail-container > * {
+  max-width: 100% !important;
+}
+
+@media (max-width: 768px) {
+  .stock-detail-page {
+    width: 100% !important;
+    max-width: 100vw !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .stock-detail-container,
+  [class*="stock-detail-container"] {
+    width: 100% !important;
+    max-width: 100vw !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  body,
+  html {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
 }
