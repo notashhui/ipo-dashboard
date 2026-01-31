@@ -1,29 +1,56 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ChevronLeft } from 'lucide-react'
-import { mockStocks } from '@/lib/mock-data'
-import { sectors } from '@/lib/mock/sectors'
+import { getStockByTicker } from '@/lib/get-stock-by-ticker'
+import { StockDetail } from '@/components/trading/stock-detail'
 
-function getStockByTicker(ticker: string): { symbol: string; name: string; price: number; changePercent: number } | null {
-  const fromMock = mockStocks.find((s) => s.symbol === ticker)
-  if (fromMock) return { symbol: fromMock.symbol, name: fromMock.name, price: fromMock.price, changePercent: fromMock.changePercent }
-  for (const sec of sectors) {
-    const s = sec.topStocks.find((t) => t.ticker === ticker)
-    if (s) return { symbol: s.ticker, name: s.name, price: s.price, changePercent: s.changePercent }
-  }
-  return null
-}
+const ROUTE_AVAILABLE_BALANCE = 1284560
 
 export default function StockDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const ticker = typeof params.ticker === 'string' ? params.ticker.toUpperCase() : ''
+  const ticker = typeof params.ticker === 'string' ? params.ticker : ''
   const stock = getStockByTicker(ticker)
+
+  // 强制重置为移动端布局 - 每次进入页面都执行
+  useEffect(() => {
+    document.body.style.cssText = 'width: 100%; max-width: 100vw; overflow-x: hidden; margin: 0; padding: 0;'
+    document.documentElement.style.cssText = 'width: 100%; max-width: 100vw; overflow-x: hidden;'
+
+    const root = document.getElementById('root')
+    if (root) root.style.cssText = 'width: 100%; max-width: 100vw; overflow-x: hidden;'
+
+    const app = document.querySelector('.App')
+    if (app) app.style.cssText = 'width: 100%; max-width: 100vw; overflow-x: hidden;'
+
+    const nextRoot = document.getElementById('__next')
+    if (nextRoot) nextRoot.style.cssText = 'width: 100%; max-width: 100vw; overflow-x: hidden;'
+
+    const fixWideElements = () => {
+      document.querySelectorAll('div').forEach((div) => {
+        if (div.offsetWidth > window.innerWidth) {
+          div.style.maxWidth = '100%'
+          div.style.width = '100%'
+        }
+      })
+    }
+    fixWideElements()
+    setTimeout(fixWideElements, 100)
+    setTimeout(fixWideElements, 500)
+
+    return () => {
+      document.body.style.cssText = ''
+      document.documentElement.style.cssText = ''
+      if (root) root.style.cssText = ''
+      if (app) app.style.cssText = ''
+      if (nextRoot) nextRoot.style.cssText = ''
+    }
+  }, [])
 
   if (!stock) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4">
+      <div className="w-full min-w-0 max-w-full overflow-x-hidden min-h-screen bg-black text-white flex flex-col items-center justify-center px-4 md:max-w-[430px] md:mx-auto">
         <p className="text-zinc-500 text-sm">Stock not found</p>
         <button
           onClick={() => router.back()}
@@ -35,41 +62,18 @@ export default function StockDetailPage() {
     )
   }
 
-  const isPositive = stock.changePercent >= 0
-  const changeColor = isPositive ? 'text-[#F04438]' : 'text-[#2E6BE6]'
-
   return (
-    <div className="min-h-screen bg-black text-white pb-24 max-w-[430px] mx-auto">
-      {/* Header */}
-      <div className="sticky top-0 bg-black/95 backdrop-blur-md z-50 border-b border-zinc-900">
-        <div className="flex items-center px-4 py-3">
-          <button
-            onClick={() => router.back()}
-            className="p-2 hover:bg-zinc-900 rounded-full"
-          >
-            <ChevronLeft size={22} className="text-zinc-400" />
-          </button>
-          <h1 className="flex-1 text-center font-black text-sm uppercase tracking-widest">
-            {stock.symbol}
-          </h1>
-          <div className="w-10" />
-        </div>
-      </div>
-
-      {/* Price */}
-      <div className="px-4 py-8 border-b border-zinc-900">
-        <div className="bg-zinc-900/40 rounded-2xl p-6 border border-zinc-900">
-          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-2">
-            {stock.name}
-          </p>
-          <p className="text-4xl font-black tabular-nums tracking-tight text-white">
-            ${stock.price.toFixed(2)}
-          </p>
-          <p className={`text-lg font-black tabular-nums mt-2 ${changeColor}`}>
-            {isPositive ? '+' : ''}{stock.changePercent.toFixed(2)}%
-          </p>
-        </div>
-      </div>
+    <div
+      className="stock-detail-page w-full min-w-0 max-w-full overflow-x-hidden md:max-w-[430px] md:mx-auto min-h-screen bg-black"
+      style={{ width: '100%', maxWidth: '100%', overflowX: 'hidden' }}
+    >
+      <StockDetail
+        stock={stock}
+        onBack={() => router.back()}
+        onOrderSubmit={undefined}
+        onNavigateToTrade={() => router.push('/')}
+        availableBalance={ROUTE_AVAILABLE_BALANCE}
+      />
     </div>
   )
 }

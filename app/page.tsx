@@ -20,7 +20,7 @@ import { IPOModule } from '@/components/trading/ipo-module'
 import { DividendModule } from '@/components/trading/dividend-module'
 import { MarketTempModule } from '@/components/trading/market-temp-module'
 import { EarningsModule } from '@/components/trading/earnings-module'
-import { FundHoldingsModule } from '@/components/trading/fund-holdings-module'
+import { MarketPulseModule } from '@/components/trading/market-pulse-module'
 import { SignalsModule } from '@/components/trading/signals-module'
 import { RankingsModule } from '@/components/trading/rankings-module'
 import { IndustryChainModule } from '@/components/trading/industry-chain-module'
@@ -322,7 +322,7 @@ export default function TradingApp() {
           />
         )
       case 'fund-holdings':
-        return <FundHoldingsModule onBack={goBack} onStockSelect={handleStockSelect} />
+        return <MarketPulseModule onBack={goBack} onStockSelect={handleStockSelect} />
       case 'signals':
         return (
           <SignalsModule 

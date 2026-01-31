@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ChevronLeft, Star, Share2, TrendingUp, Clock, LayoutGrid, PieChart, Activity } from 'lucide-react'
 import type { Stock, StockMetrics, CapitalFlow, Order } from '@/lib/types'
 import { mockStockMetrics, mockCapitalFlow } from '@/lib/mock-data'
@@ -41,8 +41,22 @@ export function StockDetail({
   const isPositive = stock.changePercent >= 0
   const priceColor = isPositive ? 'text-[#F04438]' : 'text-[#2E6BE6]'
 
+  useEffect(() => {
+    const containers = document.querySelectorAll('div')
+    containers.forEach((el) => {
+      const width = el.offsetWidth
+      if (width > window.innerWidth) {
+        el.style.width = '100%'
+        el.style.maxWidth = '100%'
+      }
+    })
+  }, [])
+
   return (
-    <div className="min-h-screen bg-black text-white pb-32">
+    <div
+      className="stock-detail-container w-full min-w-0 max-w-full overflow-x-hidden min-h-screen bg-black text-white pb-32"
+      style={{ width: '100%', maxWidth: '100%', overflowX: 'hidden' }}
+    >
       {/* Top Navigation */}
       <div className="sticky top-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-between px-4 py-3 border-b border-zinc-900/50">
         <button onClick={onBack} className="p-2 hover:bg-zinc-900 rounded-full">
@@ -256,8 +270,8 @@ export function StockDetail({
         </div>
       </div>
 
-      {/* Fixed Bottom Trading Bar */}
-      <div className="fixed bottom-0 w-full max-w-[430px] p-5 bg-black border-t border-zinc-900 z-50 flex items-center gap-5 shadow-[0_-20px_50px_rgba(0,0,0,1)]">
+      {/* Fixed Bottom Trading Bar - centered on large viewports, full width on mobile */}
+      <div className="fixed bottom-0 left-0 right-0 md:left-1/2 md:right-auto md:-translate-x-1/2 w-full max-w-[430px] p-5 bg-black border-t border-zinc-900 z-50 flex items-center gap-5 shadow-[0_-20px_50px_rgba(0,0,0,1)]">
         <div className="flex gap-6 shrink-0 border-r border-zinc-900 pr-5">
           <div className="flex flex-col items-center gap-1.5 cursor-pointer group">
             <LayoutGrid size={18} className="text-zinc-600 group-hover:text-white" />

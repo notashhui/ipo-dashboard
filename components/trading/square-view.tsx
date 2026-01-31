@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Search, Bell, Award, Target, Calendar, BarChart3, Clock, BellRing, Layers, TrendingUp, Send, ArrowUpRight, MessageCircle } from 'lucide-react'
 import type { ViewType, Stock } from '@/lib/types'
 import { GlobalNewsCenter, type NewsItem } from './global-news-center'
@@ -11,9 +12,9 @@ interface SquareViewProps {
 }
 
 const marketIndices = [
-  { name: 'NASDAQ', value: '18,987.47', change: '+120.30', percent: '+0.64%', isUp: true },
-  { name: 'HANG SENG', value: '19,420.15', change: '-156.40', percent: '-0.80%', isUp: false },
-  { name: 'DOW JONES', value: '43,870.20', change: '+54.10', percent: '+0.12%', isUp: true },
+  { name: 'NASDAQ', value: '18,987.47', change: '+120.30', percent: '+0.64%', isUp: true, code: 'NASDAQ' as const },
+  { name: 'HANG SENG', value: '19,420.15', change: '-156.40', percent: '-0.80%', isUp: false, code: 'HSI' as const },
+  { name: 'DOW JONES', value: '43,870.20', change: '+54.10', percent: '+0.12%', isUp: true, code: 'DJI' as const },
 ]
 
 // Color mapping: Tailwind class -> hex color
@@ -33,7 +34,7 @@ const moduleIcons = [
   { id: 'market-temp' as ViewType, label: 'Themes', icon: Target, bgColor: 'bg-blue-500' },
   { id: 'earnings' as ViewType, label: 'Earnings', icon: Calendar, bgColor: 'bg-purple-500' },
   { id: 'dividend' as ViewType, label: 'Dividends', icon: BarChart3, bgColor: 'bg-yellow-500' },
-  { id: 'fund-holdings' as ViewType, label: 'Institutions', icon: Clock, bgColor: 'bg-emerald-500' },
+  { id: 'fund-holdings' as ViewType, label: 'Market Pulse', icon: Clock, bgColor: 'bg-emerald-500' },
   { id: 'signals' as ViewType, label: 'Smart Scan', icon: BellRing, bgColor: 'bg-rose-500' },
   { id: 'rankings' as ViewType, label: 'Top Lists', icon: Layers, bgColor: 'bg-teal-500' },
   { id: 'industry-chain' as ViewType, label: 'Chain', icon: TrendingUp, bgColor: 'bg-sky-500' },
@@ -42,12 +43,17 @@ const moduleIcons = [
 
 
 export function SquareView({ onNavigate, onNewsSelect }: SquareViewProps) {
+  const router = useRouter()
   const [aiPrompt, setAiPrompt] = useState('')
   const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
     setIsMounted(true)
   }, [])
+
+  const handleIndexClick = (code: string) => {
+    router.push(`/index/${code}`)
+  }
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">
@@ -87,9 +93,11 @@ export function SquareView({ onNavigate, onNewsSelect }: SquareViewProps) {
       <div className="px-4 py-5">
         <div className="flex gap-3 overflow-x-auto no-scrollbar">
           {marketIndices.map((index) => (
-            <div
+            <button
               key={index.name}
-              className="flex-shrink-0 w-[160px] bg-zinc-900/60 rounded-2xl p-4 border border-zinc-800/50"
+              type="button"
+              onClick={() => handleIndexClick(index.code)}
+              className="flex-shrink-0 w-[160px] bg-zinc-900/60 rounded-2xl p-4 border border-zinc-800/50 text-left hover:bg-zinc-900/80 active:scale-[0.99] transition-all cursor-pointer"
             >
               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">
                 {index.name}
@@ -100,7 +108,7 @@ export function SquareView({ onNavigate, onNewsSelect }: SquareViewProps) {
               <p className={`text-xs font-semibold tabular-nums mt-1 ${index.isUp ? 'text-emerald-400' : 'text-red-500'}`}>
                 {index.change} {index.percent}
               </p>
-            </div>
+            </button>
           ))}
         </div>
       </div>

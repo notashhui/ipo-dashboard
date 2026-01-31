@@ -118,6 +118,26 @@ export interface InstitutionalActivity {
   activityType: 'ALL' | 'INCREASE' | 'DECREASE' | 'NEW' | 'CLEAR'
 }
 
+// Market Pulse / News Center Types
+export type MarketPulseRegion = 'Americas' | 'Europe' | 'Asia' | 'Global'
+
+export interface MarketPulseRelatedStock {
+  symbol: string
+  change: number
+}
+
+export interface MarketPulseNewsItem {
+  id: string
+  timestamp: string // e.g. "2h ago", "3h ago"
+  region: MarketPulseRegion
+  title: string
+  source: string
+  body: string // full article text
+  relatedStocks: MarketPulseRelatedStock[]
+  heat?: number
+  comments?: number
+}
+
 export interface Signal extends Stock {
   timestamp: string
   signalType: string
@@ -151,6 +171,50 @@ export interface ScanResult {
   changePercent: number
   revenue?: number
   watchlistCount: number
+}
+
+// Hot Stocks / Market Movers
+export type HotDimension = 'gainers' | 'losers' | 'volume' | 'trending'
+export type HotMarket = 'us' | 'hk' | 'cn' | 'all'
+
+export interface HotStockItem {
+  symbol: string
+  name: string
+  price: number
+  change: number
+  changeAmount: number
+  currency: 'USD' | 'HKD' | 'CNY'
+  trendData: number[]
+  heat: 'high' | 'medium' | 'low'
+}
+
+// Index constituents
+export type IndexCode = 'NASDAQ' | 'HSI' | 'DJI'
+
+export interface IndexConstituent {
+  rank: number
+  symbol: string
+  name: string
+  price: number
+  change: number
+  changeAmount: number
+  marketCap: number
+  weight: number
+  sector: string
+  trendData: number[]
+  volume: number
+}
+
+export interface IndexDetail {
+  code: IndexCode
+  name: string
+  value: number
+  change: number
+  changePercent: number
+  todayRange: { low: number; high: number }
+  fiftyTwoWeekRange: { low: number; high: number }
+  chartData: { daily: { date: string; open: number; close: number; high: number; low: number }[] }
+  constituents: IndexConstituent[]
 }
 
 export interface RankingStock extends Stock {
