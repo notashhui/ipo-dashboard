@@ -279,9 +279,9 @@ export function StockDetail({
       {/* Fixed Bottom Trading Bar */}
       {mounted &&
         createPortal(
-          <div className="fixed bottom-0 inset-x-0 z-[9999] bg-black border-t border-zinc-900 shadow-[0_-20px_50px_rgba(0,0,0,1)]">
+          <div className="fixed bottom-0 w-full z-[9999]">
             <div
-              className="flex items-center gap-3 px-4 py-3"
+              className="max-w-[428px] mx-auto px-4 py-3 bg-black border-t border-zinc-900 shadow-[0_-20px_50px_rgba(0,0,0,1)] flex items-center gap-3"
               style={{
                 paddingBottom: 'env(safe-area-inset-bottom, 0.75rem)',
               }}
