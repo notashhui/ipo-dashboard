@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import { ChevronLeft, Star, Share2, TrendingUp, Clock, LayoutGrid, PieChart, Activity } from 'lucide-react'
 import type { Stock, StockMetrics, CapitalFlow, Order } from '@/lib/types'
 import { mockStockMetrics, mockCapitalFlow } from '@/lib/mock-data'
@@ -60,8 +59,8 @@ export function StockDetail({
 
   return (
     <div
-      className="stock-detail-container w-full min-w-0 max-w-full overflow-x-hidden min-h-screen bg-black text-white pb-32"
-      style={{ width: '100%', maxWidth: '100%', overflowX: 'hidden' }}
+      className="stock-detail-container w-full min-w-0 max-w-full overflow-x-hidden min-h-screen bg-black text-white"
+      style={{ width: '100%', maxWidth: '100%', overflowX: 'hidden', paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
     >
       {/* Top Navigation */}
       <div className="sticky top-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-between px-4 py-3 border-b border-zinc-900/50">
@@ -276,52 +275,48 @@ export function StockDetail({
         </div>
       </div>
 
-      {/* Fixed Bottom Trading Bar - Portal to body so it always fills viewport width */}
-      {mounted &&
-        createPortal(
-          <div
-            className="fixed bottom-0 left-0 right-0 z-[9999] flex items-center gap-3 bg-black border-t border-zinc-900 shadow-[0_-20px_50px_rgba(0,0,0,1)]"
-            style={{
-              width: '100%',
-              minWidth: '100vw',
-              maxWidth: '100vw',
-              padding: '1rem 1rem max(1rem, env(safe-area-inset-bottom)) 1rem',
-              boxSizing: 'border-box',
-            }}
-          >
-            <div className="flex shrink-0 gap-4 border-r border-zinc-900 pr-4">
-              <div className="flex flex-col items-center gap-1 cursor-pointer group min-w-0">
-                <LayoutGrid size={16} className="shrink-0 text-zinc-600 group-hover:text-white" />
-                <span className="text-[7px] font-black uppercase tracking-widest text-zinc-600 truncate">More</span>
-              </div>
-              <div className="flex flex-col items-center gap-1 cursor-pointer group min-w-0">
-                <PieChart size={16} className="shrink-0 text-zinc-600 group-hover:text-white" />
-                <span className="text-[7px] font-black uppercase tracking-widest text-zinc-600 truncate">Options</span>
-              </div>
+      {/* Fixed Bottom Trading Bar */}
+      {mounted && (
+        <div
+          className="fixed bottom-0 left-0 right-0 z-[9999] flex items-center gap-3 bg-black border-t border-zinc-900 shadow-[0_-20px_50px_rgba(0,0,0,1)] w-full px-4"
+          style={{
+            paddingBottom: 'env(safe-area-inset-bottom, 1rem)',
+            paddingTop: '1rem',
+            boxSizing: 'border-box',
+          }}
+        >
+          <div className="flex shrink-0 gap-4 border-r border-zinc-900 pr-4">
+            <div className="flex flex-col items-center gap-1 cursor-pointer group min-w-0">
+              <LayoutGrid size={16} className="shrink-0 text-zinc-600 group-hover:text-white" />
+              <span className="text-[7px] font-black uppercase tracking-widest text-zinc-600 truncate">More</span>
             </div>
+            <div className="flex flex-col items-center gap-1 cursor-pointer group min-w-0">
+              <PieChart size={16} className="shrink-0 text-zinc-600 group-hover:text-white" />
+              <span className="text-[7px] font-black uppercase tracking-widest text-zinc-600 truncate">Options</span>
+            </div>
+          </div>
 
-            <div className="flex min-w-0 flex-1 gap-2">
-              <button
-                onClick={() => setOrderDrawer({ isOpen: true, type: 'buy' })}
-                className="min-w-0 flex-1 bg-[#F04438] py-3.5 rounded-[2px] font-black text-xs uppercase tracking-[0.3em] text-white shadow-xl shadow-[#F04438]/20 active:scale-95"
-              >
-                Buy
-              </button>
-              <button
-                onClick={() => setOrderDrawer({ isOpen: true, type: 'sell' })}
-                className="min-w-0 flex-1 bg-[#2E6BE6] py-3.5 rounded-[2px] font-black text-xs uppercase tracking-[0.3em] text-white shadow-xl shadow-[#2E6BE6]/20 active:scale-95"
-              >
-                Sell
-              </button>
-            </div>
+          <div className="flex min-w-0 flex-1 gap-2">
+            <button
+              onClick={() => setOrderDrawer({ isOpen: true, type: 'buy' })}
+              className="min-w-0 flex-1 bg-[#F04438] py-3.5 rounded-[2px] font-black text-xs uppercase tracking-[0.3em] text-white shadow-xl shadow-[#F04438]/20 active:scale-95"
+            >
+              Buy
+            </button>
+            <button
+              onClick={() => setOrderDrawer({ isOpen: true, type: 'sell' })}
+              className="min-w-0 flex-1 bg-[#2E6BE6] py-3.5 rounded-[2px] font-black text-xs uppercase tracking-[0.3em] text-white shadow-xl shadow-[#2E6BE6]/20 active:scale-95"
+            >
+              Sell
+            </button>
+          </div>
 
-            <div className="absolute -top-12 right-4 hidden w-10 h-10 bg-white rounded-full items-center justify-center shadow-2xl shadow-blue-500/20 cursor-pointer hover:scale-110 active:scale-90 border-2 border-black sm:flex">
-              <Activity size={20} className="text-black" />
-              <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-[#F04438] border-2 border-black rounded-full animate-pulse" />
-            </div>
-          </div>,
-          document.body
-        )}
+          <div className="absolute -top-12 right-4 hidden w-10 h-10 bg-white rounded-full items-center justify-center shadow-2xl shadow-blue-500/20 cursor-pointer hover:scale-110 active:scale-90 border-2 border-black sm:flex">
+            <Activity size={20} className="text-black" />
+            <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-[#F04438] border-2 border-black rounded-full animate-pulse" />
+          </div>
+        </div>
+      )}
 
       {/* Order Drawer */}
       {orderDrawer.isOpen && (
