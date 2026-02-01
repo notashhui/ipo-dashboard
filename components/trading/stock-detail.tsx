@@ -47,24 +47,11 @@ export function StockDetail({
   const isPositive = stock.changePercent >= 0
   const priceColor = isPositive ? 'text-[#F04438]' : 'text-[#2E6BE6]'
 
-  useEffect(() => {
-    const containers = document.querySelectorAll('div')
-    containers.forEach((el) => {
-      const width = el.offsetWidth
-      if (width > window.innerWidth) {
-        el.style.width = '100%'
-        el.style.maxWidth = '100%'
-      }
-    })
-  }, [])
-
   return (
-    <div
-      className="stock-detail-container w-full min-w-0 max-w-full overflow-x-hidden min-h-screen bg-black text-white pb-32"
-      style={{ width: '100%', maxWidth: '100%', overflowX: 'hidden' }}
-    >
-      {/* Top Navigation */}
-      <div className="sticky top-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-between px-4 py-3 border-b border-zinc-900/50">
+    <div className="min-h-screen bg-black text-white">
+      <div className="max-w-[428px] mx-auto" style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
+        {/* Top Navigation */}
+        <div className="sticky top-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-between px-4 py-3 border-b border-zinc-900/50">
         <button onClick={onBack} className="p-2 hover:bg-zinc-900 rounded-full">
           <ChevronLeft size={22} className="text-zinc-400" />
         </button>
@@ -276,48 +263,46 @@ export function StockDetail({
         </div>
       </div>
 
-      {/* Fixed Bottom Trading Bar - Portal to body so it always fills viewport width */}
+      {/* Fixed Bottom Trading Bar */}
       {mounted &&
         createPortal(
-          <div
-            className="fixed bottom-0 left-0 right-0 z-[9999] flex items-center gap-3 bg-black border-t border-zinc-900 shadow-[0_-20px_50px_rgba(0,0,0,1)]"
-            style={{
-              width: '100%',
-              minWidth: '100vw',
-              maxWidth: '100vw',
-              padding: '1rem 1rem max(1rem, env(safe-area-inset-bottom)) 1rem',
-              boxSizing: 'border-box',
-            }}
-          >
-            <div className="flex shrink-0 gap-4 border-r border-zinc-900 pr-4">
-              <div className="flex flex-col items-center gap-1 cursor-pointer group min-w-0">
-                <LayoutGrid size={16} className="shrink-0 text-zinc-600 group-hover:text-white" />
-                <span className="text-[7px] font-black uppercase tracking-widest text-zinc-600 truncate">More</span>
+          <div className="fixed bottom-0 w-full z-[9999]">
+            <div
+              className="max-w-[428px] mx-auto px-4 py-3 bg-black border-t border-zinc-900 shadow-[0_-20px_50px_rgba(0,0,0,1)] flex items-center gap-3"
+              style={{
+                paddingBottom: 'env(safe-area-inset-bottom, 0.75rem)',
+              }}
+            >
+              <div className="flex shrink-0 gap-4 border-r border-zinc-900 pr-4">
+                <div className="flex flex-col items-center gap-1 cursor-pointer group min-w-0">
+                  <LayoutGrid size={16} className="shrink-0 text-zinc-600 group-hover:text-white" />
+                  <span className="text-[7px] font-black uppercase tracking-widest text-zinc-600 truncate">More</span>
+                </div>
+                <div className="flex flex-col items-center gap-1 cursor-pointer group min-w-0">
+                  <PieChart size={16} className="shrink-0 text-zinc-600 group-hover:text-white" />
+                  <span className="text-[7px] font-black uppercase tracking-widest text-zinc-600 truncate">Options</span>
+                </div>
               </div>
-              <div className="flex flex-col items-center gap-1 cursor-pointer group min-w-0">
-                <PieChart size={16} className="shrink-0 text-zinc-600 group-hover:text-white" />
-                <span className="text-[7px] font-black uppercase tracking-widest text-zinc-600 truncate">Options</span>
+
+              <div className="flex min-w-0 flex-1 gap-2">
+                <button
+                  onClick={() => setOrderDrawer({ isOpen: true, type: 'buy' })}
+                  className="min-w-0 flex-1 bg-[#F04438] py-3.5 rounded-[2px] font-black text-xs uppercase tracking-[0.3em] text-white shadow-xl shadow-[#F04438]/20 active:scale-95"
+                >
+                  Buy
+                </button>
+                <button
+                  onClick={() => setOrderDrawer({ isOpen: true, type: 'sell' })}
+                  className="min-w-0 flex-1 bg-[#2E6BE6] py-3.5 rounded-[2px] font-black text-xs uppercase tracking-[0.3em] text-white shadow-xl shadow-[#2E6BE6]/20 active:scale-95"
+                >
+                  Sell
+                </button>
               </div>
-            </div>
 
-            <div className="flex min-w-0 flex-1 gap-2">
-              <button
-                onClick={() => setOrderDrawer({ isOpen: true, type: 'buy' })}
-                className="min-w-0 flex-1 bg-[#F04438] py-3.5 rounded-[2px] font-black text-xs uppercase tracking-[0.3em] text-white shadow-xl shadow-[#F04438]/20 active:scale-95"
-              >
-                Buy
-              </button>
-              <button
-                onClick={() => setOrderDrawer({ isOpen: true, type: 'sell' })}
-                className="min-w-0 flex-1 bg-[#2E6BE6] py-3.5 rounded-[2px] font-black text-xs uppercase tracking-[0.3em] text-white shadow-xl shadow-[#2E6BE6]/20 active:scale-95"
-              >
-                Sell
-              </button>
-            </div>
-
-            <div className="absolute -top-12 right-4 hidden w-10 h-10 bg-white rounded-full items-center justify-center shadow-2xl shadow-blue-500/20 cursor-pointer hover:scale-110 active:scale-90 border-2 border-black sm:flex">
-              <Activity size={20} className="text-black" />
-              <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-[#F04438] border-2 border-black rounded-full animate-pulse" />
+              <div className="absolute -top-12 right-4 hidden w-10 h-10 bg-white rounded-full items-center justify-center shadow-2xl shadow-blue-500/20 cursor-pointer hover:scale-110 active:scale-90 border-2 border-black sm:flex">
+                <Activity size={20} className="text-black" />
+                <div className="absolute top-0 right-0 w-2.5 h-2.5 bg-[#F04438] border-2 border-black rounded-full animate-pulse" />
+              </div>
             </div>
           </div>,
           document.body
@@ -336,6 +321,7 @@ export function StockDetail({
           availableBalance={availableBalance}
         />
       )}
+      </div>
     </div>
   )
 }
