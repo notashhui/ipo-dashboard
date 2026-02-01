@@ -280,16 +280,10 @@ export function StockDetail({
       {mounted &&
         createPortal(
           <div
-            className="fixed bottom-0 left-0 right-0 z-[9999] flex items-center gap-3 bg-black border-t border-zinc-900 shadow-[0_-20px_50px_rgba(0,0,0,1)]"
+            className="fixed bottom-0 w-full z-[9999] flex items-center gap-3 bg-black border-t border-zinc-900 shadow-[0_-20px_50px_rgba(0,0,0,1)] px-4"
             style={{
-              width: '100vw',
-              left: 0,
-              right: 0,
-              margin: 0,
               paddingBottom: 'env(safe-area-inset-bottom, 0px)',
               paddingTop: '1rem',
-              paddingLeft: '1rem',
-              paddingRight: '1rem',
               boxSizing: 'border-box',
             }}
           >
