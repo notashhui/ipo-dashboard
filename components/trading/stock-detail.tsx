@@ -47,24 +47,11 @@ export function StockDetail({
   const isPositive = stock.changePercent >= 0
   const priceColor = isPositive ? 'text-[#F04438]' : 'text-[#2E6BE6]'
 
-  useEffect(() => {
-    const containers = document.querySelectorAll('div')
-    containers.forEach((el) => {
-      const width = el.offsetWidth
-      if (width > window.innerWidth) {
-        el.style.width = '100%'
-        el.style.maxWidth = '100%'
-      }
-    })
-  }, [])
-
   return (
-    <div
-      className="stock-detail-container w-full min-w-0 max-w-full overflow-x-hidden min-h-screen bg-black text-white"
-      style={{ width: '100%', maxWidth: '100%', overflowX: 'hidden', paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
-    >
-      {/* Top Navigation */}
-      <div className="sticky top-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-between px-4 py-3 border-b border-zinc-900/50">
+    <div className="min-h-screen bg-black text-white">
+      <div className="max-w-[428px] mx-auto" style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
+        {/* Top Navigation */}
+        <div className="sticky top-0 bg-black/95 backdrop-blur-md z-50 flex items-center justify-between px-4 py-3 border-b border-zinc-900/50">
         <button onClick={onBack} className="p-2 hover:bg-zinc-900 rounded-full">
           <ChevronLeft size={22} className="text-zinc-400" />
         </button>
@@ -334,6 +321,7 @@ export function StockDetail({
           availableBalance={availableBalance}
         />
       )}
+      </div>
     </div>
   )
 }
