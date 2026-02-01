@@ -48,15 +48,27 @@ export default function StockDetailPage() {
     }
   }, [])
 
+  // 处理返回导航 - 优先使用 router.back()，如果失败则导航到首页
+  const handleGoBack = () => {
+    // 尝试返回到上一页
+    router.back()
+    // 设置一个超时时间，如果没有返回，则导航到首页
+    setTimeout(() => {
+      if (window.location.pathname === `/stock/${ticker}`) {
+        router.push('/')
+      }
+    }, 100)
+  }
+
   if (!stock) {
     return (
       <div className="w-full min-w-0 max-w-full overflow-x-hidden min-h-screen bg-black text-white flex flex-col items-center justify-center px-4 md:max-w-[430px] md:mx-auto">
         <p className="text-zinc-500 text-sm">Stock not found</p>
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push('/')}
           className="mt-4 text-amber-500 text-sm font-bold uppercase"
         >
-          Back
+          Back to Home
         </button>
       </div>
     )
@@ -69,7 +81,7 @@ export default function StockDetailPage() {
     >
       <StockDetail
         stock={stock}
-        onBack={() => router.back()}
+        onBack={handleGoBack}
         onOrderSubmit={undefined}
         onNavigateToTrade={() => router.push('/')}
         availableBalance={ROUTE_AVAILABLE_BALANCE}
