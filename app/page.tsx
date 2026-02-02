@@ -347,7 +347,7 @@ export default function TradingApp() {
   const showBottomNav = currentView !== 'stock-detail' && currentView !== 'news-detail'
 
   return (
-    <div className="w-full max-w-[430px] mx-auto min-h-screen bg-black text-white">
+    <div className="w-full max-w-[430px] mx-auto min-h-screen text-white" style={{ backgroundColor: '#020617' }}>
       {renderView()}
       {showBottomNav && (
         <BottomNav currentTab={currentTab} onTabChange={handleTabChange} />
