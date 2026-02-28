@@ -21,7 +21,7 @@ export function TradeView({ orders = [], ipoOrders = [], onCancelOrder }: TradeV
     return () => clearInterval(timer)
   }, [])
 
-  const pendingOrders = orders.filter(o => o.status === 'pending')
+  const pendingOrders = orders.filter(o => ['pending', 'submitted', 'partially_filled'].includes(o.status))
   const completedOrders = orders.filter(o => o.status === 'filled' || o.status === 'cancelled')
 
   const formatTime = (date: Date) => {
@@ -239,6 +239,10 @@ function OrderCard({
   formatTime: (date: Date) => string
   onCancel?: (orderId: string) => void
 }) {
+  const statusLabel = order.status.replace('_', ' ')
+  const statusColor =
+    order.status === 'partially_filled' ? 'text-amber-500' : order.status === 'submitted' ? 'text-blue-400' : 'text-amber-500'
+
   return (
     <div className="bg-zinc-900/40 rounded-2xl p-4 border border-zinc-900">
       {/* Header Row */}
@@ -262,9 +266,9 @@ function OrderCard({
           </div>
         </div>
         <div className="text-right">
-          <div className="flex items-center gap-1.5 text-amber-500">
+          <div className={`flex items-center gap-1.5 ${statusColor}`}>
             <Clock size={12} />
-            <span className="text-[10px] font-black uppercase">Pending</span>
+            <span className="text-[10px] font-black uppercase">{statusLabel}</span>
           </div>
           <p className="text-[11px] font-bold text-zinc-600 tabular-nums mt-0.5">
             {formatTime(order.timestamp)}
@@ -304,8 +308,10 @@ function OrderCard({
           <span>{order.orderType.toUpperCase()} ROUTING</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">Live Queue</span>
+          <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${order.status === 'submitted' ? 'bg-blue-400' : order.status === 'partially_filled' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+          <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest">
+            {order.status === 'submitted' ? 'Broker Received' : order.status === 'partially_filled' ? 'Working Order' : 'Live Queue'}
+          </span>
         </div>
       </div>
     </div>
