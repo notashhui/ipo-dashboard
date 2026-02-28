@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import type { ViewType, Stock, Order, Holding } from '@/lib/types'
 import { mockStocks } from '@/lib/mock-data'
 import { useIpoOrders } from '@/hooks/use-ipo-orders'
+import { useStockOrders } from '@/hooks/use-stock-orders'
 
 // Navigation
 import { BottomNav, type TabType } from '@/components/trading/bottom-nav'
@@ -72,7 +73,7 @@ export default function TradingApp() {
   const [stockBadge, setStockBadge] = useState<string | undefined>(undefined)
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null)
   const [viewHistory, setViewHistory] = useState<ViewType[]>(['square'])
-  const [orders, setOrders] = useState<Order[]>([])
+  const { orders, addOrder, cancelOrder } = useStockOrders()
   const [holdings, setHoldings] = useState<Holding[]>(initialHoldings)
   const { ipoOrders, addIpoOrder } = useIpoOrders()
 
@@ -82,107 +83,30 @@ export default function TradingApp() {
   const securitiesValue = holdings.reduce((sum, h) => sum + h.marketValue, 0)
   const [cashBalance, setCashBalance] = useState(initialTotal - securitiesValue - earnValue)
 
-  // Handle order submission with proper logic for limit vs market orders
+  const isOpenBuyOrder = useCallback((order: Order) => {
+    return order.type === 'buy' && ['pending', 'submitted', 'partially_filled'].includes(order.status)
+  }, [])
+
   const handleOrderSubmit = useCallback((order: Order) => {
-    setOrders(prev => [order, ...prev])
-    
-    // For MARKET orders: execute immediately and update holdings
-    if (order.orderType === 'market') {
-      if (order.type === 'buy') {
-        // Deduct cash
-        setCashBalance(prev => prev - order.total)
-        
-        // Add to holdings
-        setHoldings(prev => {
-          const existingIndex = prev.findIndex(h => h.symbol === order.symbol)
-          if (existingIndex >= 0) {
-            // Update existing holding
-            const existing = prev[existingIndex]
-            const newQuantity = existing.quantity + order.quantity
-            const newAvgCost = ((existing.avgCost * existing.quantity) + (order.price * order.quantity)) / newQuantity
-            const newMarketValue = newQuantity * order.price
-            const newUnrealizedPL = (order.price - newAvgCost) * newQuantity
-            const newUnrealizedPLPercent = (newUnrealizedPL / (newAvgCost * newQuantity)) * 100
-            
-            const updated = [...prev]
-            updated[existingIndex] = {
-              ...existing,
-              quantity: newQuantity,
-              avgCost: newAvgCost,
-              currentPrice: order.price,
-              marketValue: newMarketValue,
-              unrealizedPL: newUnrealizedPL,
-              unrealizedPLPercent: newUnrealizedPLPercent
-            }
-            return updated
-          } else {
-            // Create new holding
-            return [...prev, {
-              symbol: order.symbol,
-              name: order.name,
-              quantity: order.quantity,
-              avgCost: order.price,
-              currentPrice: order.price,
-              marketValue: order.total,
-              unrealizedPL: 0,
-              unrealizedPLPercent: 0,
-              color: stockColors[order.symbol] || '#3f3f46'
-            }]
-          }
-        })
-      } else {
-        // SELL order
-        setCashBalance(prev => prev + order.total)
-        
-        setHoldings(prev => {
-          const existingIndex = prev.findIndex(h => h.symbol === order.symbol)
-          if (existingIndex >= 0) {
-            const existing = prev[existingIndex]
-            const newQuantity = existing.quantity - order.quantity
-            
-            if (newQuantity <= 0) {
-              // Remove holding entirely
-              return prev.filter((_, i) => i !== existingIndex)
-            }
-            
-            const newMarketValue = newQuantity * existing.currentPrice
-            const newUnrealizedPL = (existing.currentPrice - existing.avgCost) * newQuantity
-            const newUnrealizedPLPercent = (newUnrealizedPL / (existing.avgCost * newQuantity)) * 100
-            
-            const updated = [...prev]
-            updated[existingIndex] = {
-              ...existing,
-              quantity: newQuantity,
-              marketValue: newMarketValue,
-              unrealizedPL: newUnrealizedPL,
-              unrealizedPLPercent: newUnrealizedPLPercent
-            }
-            return updated
-          }
-          return prev
-        })
-      }
-    }
-    // For LIMIT orders: only reserve cash for buy orders, don't update holdings yet
-    else if (order.orderType === 'limit' && order.type === 'buy') {
+    addOrder(order)
+
+    if (isOpenBuyOrder(order)) {
       setCashBalance(prev => prev - order.total)
     }
-  }, [])
+  }, [addOrder, isOpenBuyOrder])
 
   const handleCancelOrder = useCallback((orderId: string) => {
     const order = orders.find(o => o.id === orderId)
-    
-    setOrders(prev => prev.map(o => 
-      o.id === orderId 
-        ? { ...o, status: 'cancelled' as const }
-        : o
-    ))
-    
-    // Refund cash for pending buy orders
-    if (order && order.type === 'buy' && order.status === 'pending') {
-      setCashBalance(prev => prev + order.total)
+    cancelOrder(orderId)
+
+    if (order && isOpenBuyOrder(order)) {
+      const remainingAmount = order.execution
+        ? order.execution.remainingQuantity * order.price
+        : order.total
+
+      setCashBalance(prev => prev + remainingAmount)
     }
-  }, [orders])
+  }, [cancelOrder, isOpenBuyOrder, orders])
 
   const handleNavigateToTrade = useCallback(() => {
     setCurrentTab('trade')
@@ -233,11 +157,7 @@ export default function TradingApp() {
     setStockBadge(undefined)
   }, [])
 
-  // Calculate available balance (cash not reserved for pending orders)
-  const pendingBuyTotal = orders
-    .filter(o => o.status === 'pending' && o.type === 'buy')
-    .reduce((sum, o) => sum + o.total, 0)
-  const availableBalance = cashBalance + pendingBuyTotal
+  const availableBalance = cashBalance
 
   const renderView = () => {
     // Stock Detail - Universal Page

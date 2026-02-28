@@ -307,8 +307,39 @@ export interface Order {
   price: number
   quantity: number
   total: number
-  status: 'pending' | 'filled' | 'cancelled'
+  status: OrderStatus
   timestamp: Date
+  timestamps?: OrderTimestamps
+  execution?: OrderExecution
+  statusHistory?: OrderStatusEvent[]
+}
+
+export type OrderStatus =
+  | 'pending'
+  | 'submitted'
+  | 'partially_filled'
+  | 'filled'
+  | 'cancelled'
+
+export interface OrderTimestamps {
+  createdAt: string
+  updatedAt: string
+  submittedAt?: string
+  filledAt?: string
+  cancelledAt?: string
+}
+
+export interface OrderExecution {
+  filledQuantity: number
+  remainingQuantity: number
+  progress: number
+  avgFilledPrice?: number
+}
+
+export interface OrderStatusEvent {
+  status: OrderStatus
+  timestamp: string
+  note?: string
 }
 
 export interface IpoOrder {
