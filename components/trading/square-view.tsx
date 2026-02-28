@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Search,
@@ -23,7 +23,6 @@ interface SquareViewProps {
   onNewsSelect?: (news: NewsItem) => void
 }
 
-// OLED 纯黑背景，严格避免亮色
 const BG_OLED = '#020617'
 const GLASS_BG = 'rgba(15, 23, 42, 0.65)'
 const GLASS_BORDER = 'rgba(248, 250, 252, 0.08)'
@@ -56,7 +55,6 @@ const moduleIcons: { id: ViewType; label: string; icon: typeof Award; accent: ke
   { id: 'industry-chain', label: 'Chain', icon: TrendingUp, accent: 'sky' },
 ]
 
-// 玻璃拟态卡片基类：金融级、无亮色
 const glassCard =
   'rounded-xl border backdrop-blur-xl transition-transform duration-200 hover:scale-[1.02] cursor-pointer ' +
   'active:scale-[0.99] outline-none focus-visible:ring-2 focus-visible:ring-white/20'
@@ -65,45 +63,17 @@ export function SquareView({ onNavigate, onNewsSelect }: SquareViewProps) {
   const router = useRouter()
   const [aiPrompt, setAiPrompt] = useState('')
   const [isMounted, setIsMounted] = useState(false)
-  const [journeyIndex, setJourneyIndex] = useState(0)
-  const journeyRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setIsMounted(true)
-  }, [])
-
-  // Horizontal Scroll Journey：根据滚动位置更新进度
-  useEffect(() => {
-    const el = journeyRef.current
-    if (!el) return
-    const onScroll = () => {
-      const { scrollLeft, scrollWidth, clientWidth } = el
-      const total = scrollWidth - clientWidth
-      if (total <= 0) {
-        setJourneyIndex(0)
-        return
-      }
-      const i = Math.round((scrollLeft / total) * 1)
-      setJourneyIndex(Math.min(i, 1))
-    }
-    el.addEventListener('scroll', onScroll, { passive: true })
-    return () => el.removeEventListener('scroll', onScroll)
   }, [])
 
   const handleIndexClick = (code: string) => {
     router.push(`/index/${code}`)
   }
 
-  const scrollToChapter = (index: number) => {
-    const el = journeyRef.current
-    if (!el) return
-    const w = el.clientWidth
-    el.scrollTo({ left: index * w, behavior: 'smooth' })
-  }
-
   return (
     <div className="min-h-screen text-white pb-24" style={{ backgroundColor: BG_OLED }}>
-      {/* ---------- 1. Intro (Vertical) ---------- */}
       <header className="sticky top-0 z-50 px-4 pt-4 pb-3 flex items-center justify-between border-b border-white/[0.08] backdrop-blur-xl" style={{ backgroundColor: `${BG_OLED}e6` }}>
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -128,90 +98,59 @@ export function SquareView({ onNavigate, onNewsSelect }: SquareViewProps) {
         </div>
       </header>
 
-      {/* Journey 进度条：Horizontal Scroll Journey 指示 */}
-      <div className="flex justify-center gap-1.5 py-3">
-        {[0, 1].map((i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => scrollToChapter(i)}
-            className={`h-1 rounded-full transition-all duration-200 ${
-              journeyIndex === i ? 'w-6 bg-emerald-500' : 'w-1.5 bg-white/20 hover:bg-white/30'
-            }`}
-            aria-label={i === 0 ? 'Markets' : 'Tools'}
-          />
-        ))}
-      </div>
-
-      {/* ---------- 2. The Journey (Horizontal Scroll) — Bento 章节 ---------- */}
-      <div
-        ref={journeyRef}
-        className="flex overflow-x-auto snap-x snap-mandatory gap-4 px-4 pb-5 no-scrollbar"
-        style={{ scrollSnapType: 'x mandatory' }}
-      >
-        {/* Chapter 1: Markets — Bento Grid */}
-        <section
-          className="flex-shrink-0 w-[calc(100vw-2rem)] max-w-[calc(430px-2rem)] snap-center"
-          style={{ scrollSnapAlign: 'center' }}
-          aria-label="Markets"
-        >
+      <div className="px-4 pt-3 pb-5 space-y-3">
+        <section aria-label="Markets">
           <div className="grid grid-cols-2 grid-rows-2 gap-3">
-            {/* 大卡：NASDAQ */}
             <button
               type="button"
               onClick={() => handleIndexClick(marketIndices[0].code)}
-              className={`${glassCard} col-span-1 row-span-2 p-4 text-left flex flex-col justify-between`}
+              className={`${glassCard} col-span-1 row-span-2 p-4 text-left flex flex-col justify-between min-w-0`}
               style={{ backgroundColor: GLASS_BG, borderColor: GLASS_BORDER }}
             >
               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{marketIndices[0].name}</p>
-              <div>
-                <p className={`text-2xl font-black tabular-nums ${marketIndices[0].isUp ? 'text-emerald-400' : 'text-red-400'}`}>
+              <div className="min-w-0">
+                <p className={`text-2xl font-black tabular-nums break-all leading-tight ${marketIndices[0].isUp ? 'text-emerald-400' : 'text-red-400'}`}>
                   {marketIndices[0].value}
                 </p>
-                <p className={`text-xs font-semibold tabular-nums mt-1 ${marketIndices[0].isUp ? 'text-emerald-400' : 'text-red-400'}`}>
+                <p className={`text-xs font-semibold tabular-nums mt-1 break-all leading-tight ${marketIndices[0].isUp ? 'text-emerald-400' : 'text-red-400'}`}>
                   {marketIndices[0].change} {marketIndices[0].percent}
                 </p>
               </div>
             </button>
-            {/* 小卡：HSI */}
+
             <button
               type="button"
               onClick={() => handleIndexClick(marketIndices[1].code)}
-              className={`${glassCard} col-span-1 row-span-1 p-3 text-left`}
+              className={`${glassCard} col-span-1 row-span-1 p-3 text-left min-w-0`}
               style={{ backgroundColor: GLASS_BG, borderColor: GLASS_BORDER }}
             >
               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{marketIndices[1].name}</p>
-              <p className={`text-lg font-black tabular-nums mt-1 ${marketIndices[1].isUp ? 'text-emerald-400' : 'text-red-400'}`}>
+              <p className={`text-lg font-black tabular-nums mt-1 break-all leading-tight ${marketIndices[1].isUp ? 'text-emerald-400' : 'text-red-400'}`}>
                 {marketIndices[1].value}
               </p>
-              <p className={`text-[10px] font-semibold tabular-nums ${marketIndices[1].isUp ? 'text-emerald-400' : 'text-red-400'}`}>
+              <p className={`text-[10px] font-semibold tabular-nums break-all leading-tight ${marketIndices[1].isUp ? 'text-emerald-400' : 'text-red-400'}`}>
                 {marketIndices[1].change} {marketIndices[1].percent}
               </p>
             </button>
-            {/* 小卡：DJI */}
+
             <button
               type="button"
               onClick={() => handleIndexClick(marketIndices[2].code)}
-              className={`${glassCard} col-span-1 row-span-1 p-3 text-left`}
+              className={`${glassCard} col-span-1 row-span-1 p-3 text-left min-w-0`}
               style={{ backgroundColor: GLASS_BG, borderColor: GLASS_BORDER }}
             >
               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{marketIndices[2].name}</p>
-              <p className={`text-lg font-black tabular-nums mt-1 ${marketIndices[2].isUp ? 'text-emerald-400' : 'text-red-400'}`}>
+              <p className={`text-lg font-black tabular-nums mt-1 break-all leading-tight ${marketIndices[2].isUp ? 'text-emerald-400' : 'text-red-400'}`}>
                 {marketIndices[2].value}
               </p>
-              <p className={`text-[10px] font-semibold tabular-nums ${marketIndices[2].isUp ? 'text-emerald-400' : 'text-red-400'}`}>
+              <p className={`text-[10px] font-semibold tabular-nums break-all leading-tight ${marketIndices[2].isUp ? 'text-emerald-400' : 'text-red-400'}`}>
                 {marketIndices[2].change} {marketIndices[2].percent}
               </p>
             </button>
           </div>
         </section>
 
-        {/* Chapter 2: Tools — Bento Grid 4×2 */}
-        <section
-          className="flex-shrink-0 w-[calc(100vw-2rem)] max-w-[calc(430px-2rem)] snap-center"
-          style={{ scrollSnapAlign: 'center' }}
-          aria-label="Tools"
-        >
+        <section aria-label="Tools">
           <div className="grid grid-cols-4 grid-rows-2 gap-2">
             {moduleIcons.map((m) => {
               const Icon = m.icon
@@ -250,7 +189,6 @@ export function SquareView({ onNavigate, onNewsSelect }: SquareViewProps) {
         </section>
       </div>
 
-      {/* ---------- 3. Detail Reveal (Vertical) — 高信息密度、金融级层级 ---------- */}
       <div className="px-4 space-y-4">
         <div className="flex items-center gap-2 mb-1">
           <div className="w-0.5 h-4 rounded-full bg-emerald-500" />
@@ -258,7 +196,6 @@ export function SquareView({ onNavigate, onNewsSelect }: SquareViewProps) {
         </div>
         <GlobalNewsCenter onNewsSelect={onNewsSelect} />
 
-        {/* AI Market Analyst — 玻璃拟态，无亮色 */}
         <div
           className={`${glassCard} relative rounded-xl p-4 overflow-hidden`}
           style={{ backgroundColor: GLASS_BG, borderColor: GLASS_BORDER }}
@@ -293,8 +230,6 @@ export function SquareView({ onNavigate, onNewsSelect }: SquareViewProps) {
           </div>
         </div>
       </div>
-
-      {/* 4. Footer 由父级 BottomNav 渲染 */}
     </div>
   )
 }

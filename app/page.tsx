@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import type { ViewType, Stock, Order, Holding } from '@/lib/types'
+import type { ViewType, Stock, Order } from '@/lib/types'
 import { mockStocks } from '@/lib/mock-data'
 import { useIpoOrders } from '@/hooks/use-ipo-orders'
 import { useStockOrders } from '@/hooks/use-stock-orders'
+import { useHoldings } from '@/hooks/use-holdings'
+import { useCorporateActions } from '@/hooks/use-corporate-actions'
 
 // Navigation
 import { BottomNav, type TabType } from '@/components/trading/bottom-nav'
@@ -28,44 +30,6 @@ import { IndustryChainModule } from '@/components/trading/industry-chain-module'
 import { NewsDetail, sampleNewsArticle } from '@/components/trading/news-detail'
 import type { NewsItem } from '@/components/trading/global-news-center'
 
-// Stock color mapping for avatars
-const stockColors: Record<string, string> = {
-  'NVDA': '#dc2626',
-  'AAPL': '#78350f',
-  'TSLA': '#059669',
-  'MSFT': '#dc2626',
-  'GOOGL': '#2563eb',
-  'AMZN': '#f59e0b',
-  'META': '#3b82f6',
-  '00700': '#065f46',
-}
-
-// Initial holdings (pre-existing portfolio)
-const initialHoldings: Holding[] = [
-  {
-    symbol: 'NVDA',
-    name: 'NVIDIA Corp',
-    quantity: 500,
-    avgCost: 128.00,
-    currentPrice: 135.58,
-    marketValue: 67790,
-    unrealizedPL: 3390,
-    unrealizedPLPercent: 2.45,
-    color: stockColors['NVDA'] || '#3f3f46'
-  },
-  {
-    symbol: '00700',
-    name: 'Tencent Holdings',
-    quantity: 2000,
-    avgCost: 390.00,
-    currentPrice: 410.20,
-    marketValue: 820400,
-    unrealizedPL: 41020,
-    unrealizedPLPercent: 5.26,
-    color: stockColors['00700'] || '#3f3f46'
-  }
-]
-
 export default function TradingApp() {
   const [currentView, setCurrentView] = useState<ViewType>('square')
   const [currentTab, setCurrentTab] = useState<TabType>('square')
@@ -74,8 +38,9 @@ export default function TradingApp() {
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null)
   const [viewHistory, setViewHistory] = useState<ViewType[]>(['square'])
   const { orders, addOrder, cancelOrder } = useStockOrders()
-  const [holdings, setHoldings] = useState<Holding[]>(initialHoldings)
+  const { holdings } = useHoldings()
   const { ipoOrders, addIpoOrder } = useIpoOrders()
+  const { actions, getUpcomingActionForTicker, getAppliedActionForTickerToday } = useCorporateActions()
 
   // Calculate cash based on initial total minus securities and earn
   const initialTotal = 1284560
@@ -170,13 +135,12 @@ export default function TradingApp() {
           onOrderSubmit={handleOrderSubmit}
           onNavigateToTrade={handleNavigateToTrade}
           availableBalance={availableBalance}
+          upcomingCorporateAction={getUpcomingActionForTicker(selectedStock.symbol)}
         />
       )
     }
 
-    // News Detail
     if (currentView === 'news-detail') {
-      // Create article from selected news or use sample
       const article = selectedNews ? {
         id: selectedNews.id,
         source: selectedNews.source,
@@ -205,7 +169,19 @@ export default function TradingApp() {
       case 'trade':
         return <TradeView orders={orders} ipoOrders={ipoOrders} onCancelOrder={handleCancelOrder} />
       case 'assets':
-        return <AssetsView holdings={holdings} cashBalance={cashBalance} onStockSelect={handleStockSelectBySymbol} />
+        return (
+          <AssetsView
+            holdings={holdings}
+            cashBalance={cashBalance}
+            onStockSelect={handleStockSelectBySymbol}
+            upcomingCorporateActionsCount={actions.filter((action) => action.status === 'upcoming').length}
+            appliedActionIdsByTicker={Object.fromEntries(
+              holdings
+                .map((holding) => [holding.symbol, getAppliedActionForTickerToday(holding.symbol)?.id])
+                .filter((entry): entry is [string, string] => Boolean(entry[1]))
+            )}
+          />
+        )
       
       // Module Views
       case 'ipo':
@@ -259,7 +235,7 @@ export default function TradingApp() {
         return <IndustryChainModule onBack={goBack} onStockSelect={handleStockSelect} />
       
       default:
-        return <SquareView onNavigate={navigateTo} />
+        return <SquareView onNavigate={navigateTo} onNewsSelect={handleNewsSelect} />
     }
   }
 

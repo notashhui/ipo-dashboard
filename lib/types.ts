@@ -372,3 +372,40 @@ export interface Holding {
   unrealizedPLPercent: number
   color: string
 }
+
+export type CorporateActionType = 'split' | 'reverse_split'
+export type CorporateActionStatus = 'upcoming' | 'applied'
+
+export interface CorporateActionSnapshot {
+  shares: number
+  avgCost: number
+  totalCost: number
+  estimatedPriceAfter: number
+  estimatedValue: number
+}
+
+export interface CorporateActionHistoryEntry {
+  status: CorporateActionStatus
+  timestamp: string
+  note: string
+}
+
+export interface CorporateAction {
+  id: string
+  ticker: string
+  type: CorporateActionType
+  ratioNumerator: number
+  ratioDenominator: number
+  effectiveAt: string
+  createdAt: string
+  appliedAt?: string
+  status: CorporateActionStatus
+  snapshots: {
+    before: CorporateActionSnapshot
+    after: CorporateActionSnapshot
+  }
+  cashInLieu?: number
+  notes: string[]
+  disclosures: string[]
+  history: CorporateActionHistoryEntry[]
+}
