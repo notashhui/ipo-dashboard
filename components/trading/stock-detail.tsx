@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { createPortal } from 'react-dom'
-import { ChevronLeft, Star, Share2, TrendingUp, Clock, LayoutGrid, PieChart, Activity } from 'lucide-react'
-import type { Stock, StockMetrics, CapitalFlow, Order } from '@/lib/types'
+import { ChevronLeft, Star, Share2, TrendingUp, Clock, LayoutGrid, PieChart, Activity, ArrowRightLeft } from 'lucide-react'
+import type { Stock, StockMetrics, CapitalFlow, Order, CorporateAction } from '@/lib/types'
 import { mockStockMetrics, mockCapitalFlow } from '@/lib/mock-data'
 import { OrderDrawer } from './order-drawer'
 
@@ -15,6 +16,7 @@ interface StockDetailProps {
   onOrderSubmit?: (order: Order) => void
   onNavigateToTrade?: () => void
   availableBalance?: number
+  upcomingCorporateAction?: CorporateAction
 }
 
 const intervals = ['Intraday', '5D', 'Daily', 'Weekly', 'Monthly', 'Yearly', '1Min']
@@ -27,7 +29,8 @@ export function StockDetail({
   onBack,
   onOrderSubmit,
   onNavigateToTrade,
-  availableBalance = 1284560
+  availableBalance = 1284560,
+  upcomingCorporateAction,
 }: StockDetailProps) {
   const [activeInterval, setActiveInterval] = useState('Daily')
   const [activeTab, setActiveTab] = useState('Quote')
@@ -99,6 +102,30 @@ export function StockDetail({
           <span>Real-time Quote</span>
         </div>
       </div>
+
+      {upcomingCorporateAction && (
+        <div className="px-4 py-4 border-b border-zinc-900/50">
+          <Link
+            href={`/corporate-actions/${upcomingCorporateAction.id}`}
+            className="block rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+                <ArrowRightLeft size={18} className="text-amber-300" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-300">Corporate Action</p>
+                <p className="mt-1 text-sm font-black text-white">
+                  Upcoming {upcomingCorporateAction.type === 'split' ? 'Split' : 'Reverse Split'} {upcomingCorporateAction.ratioNumerator}:{upcomingCorporateAction.ratioDenominator}
+                </p>
+                <p className="mt-1 text-xs text-zinc-300">
+                  Effective {new Date(upcomingCorporateAction.effectiveAt).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          </Link>
+        </div>
+      )}
 
       {/* Tab Navigation */}
       <div className="flex border-b border-zinc-900/50 px-4">
