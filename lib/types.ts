@@ -300,6 +300,8 @@ export interface CapitalFlow {
 export interface Order {
   id: string
   refId: string
+  lineageRootId?: string
+  replacesOrderId?: string
   symbol: string
   name: string
   type: 'buy' | 'sell'
@@ -341,6 +343,61 @@ export interface OrderStatusEvent {
   timestamp: string
   note?: string
 }
+
+export type OptionRight = 'call' | 'put'
+export type OptionsOrderSide =
+  | 'buy_to_open'
+  | 'sell_to_open'
+  | 'buy_to_close'
+  | 'sell_to_close'
+export type OptionsPriceType = 'market' | 'limit'
+
+export interface OptionContract {
+  ticker: string
+  underlying: string
+  expiration: string
+  strike: number
+  right: OptionRight
+  multiplier: number
+  symbolId: string
+}
+
+export interface OptionChainQuote {
+  contract: OptionContract
+  bid: number
+  ask: number
+  last: number
+  iv: number
+  volume: number
+  openInterest: number
+}
+
+export interface OptionsOrder {
+  id: string
+  refId: string
+  type: 'options'
+  lineageRootId?: string
+  replacesOrderId?: string
+  contract: OptionContract
+  side: OptionsOrderSide
+  quantityContracts: number
+  priceType: OptionsPriceType
+  limitPrice?: number
+  status: OrderStatus
+  timestamp: Date
+  timestamps?: OrderTimestamps
+  statusHistory?: OrderStatusEvent[]
+  filledContracts: number
+  remainingContracts: number
+  avgFilledPrice?: number
+  fees: number
+  estimatedCost: number
+  buyingPowerImpact: number
+  maxLoss: number | 'unlimited'
+  maxProfit: number | 'unlimited'
+}
+
+export type BrokerOrder = Order | OptionsOrder
 
 export interface IpoOrder {
   id: string

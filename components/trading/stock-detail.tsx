@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import { ChevronLeft, Star, Share2, TrendingUp, Clock, LayoutGrid, PieChart, Activity, ArrowRightLeft } from 'lucide-react'
 import type { Stock, StockMetrics, CapitalFlow, Order, CorporateAction } from '@/lib/types'
 import { mockStockMetrics, mockCapitalFlow } from '@/lib/mock-data'
 import { OrderDrawer } from './order-drawer'
+import { openOptions, type OptionsEntrySource } from '@/lib/open-options'
 
 interface StockDetailProps {
   stock: Stock
@@ -17,6 +19,8 @@ interface StockDetailProps {
   onNavigateToTrade?: () => void
   availableBalance?: number
   upcomingCorporateAction?: CorporateAction
+  optionsSource?: OptionsEntrySource
+  optionsReturnTo?: string
 }
 
 const intervals = ['Intraday', '5D', 'Daily', 'Weekly', 'Monthly', 'Yearly', '1Min']
@@ -31,7 +35,10 @@ export function StockDetail({
   onNavigateToTrade,
   availableBalance = 1284560,
   upcomingCorporateAction,
+  optionsSource = 'home',
+  optionsReturnTo,
 }: StockDetailProps) {
+  const router = useRouter()
   const [activeInterval, setActiveInterval] = useState('Daily')
   const [activeTab, setActiveTab] = useState('Quote')
   const [mounted, setMounted] = useState(false)
@@ -49,6 +56,10 @@ export function StockDetail({
   
   const isPositive = stock.changePercent >= 0
   const priceColor = isPositive ? 'text-[#F04438]' : 'text-[#2E6BE6]'
+  const returnTo = optionsReturnTo ?? `/stock/${stock.symbol}`
+  const handleOpenOptionsTrade = () => {
+    openOptions(router, stock.symbol, optionsSource, returnTo)
+  }
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -100,6 +111,29 @@ export function StockDetail({
         <div className="flex items-center gap-2 text-zinc-600 text-[9px] font-bold uppercase tracking-widest">
           <Clock size={10} />
           <span>Real-time Quote</span>
+        </div>
+      </div>
+
+      <div className="relative z-10 px-4 py-4 border-b border-zinc-900/50">
+        <div className="flex items-center gap-3">
+          <span className="pointer-events-none shrink-0 text-[9px] font-black uppercase tracking-[0.24em] text-zinc-600">
+            Trade Type
+          </span>
+          <div className="relative z-10 flex min-w-0 flex-1 rounded-full bg-zinc-900/60 p-1">
+            <button
+              type="button"
+              className="flex-1 rounded-full bg-white px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-black"
+            >
+              Stock
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenOptionsTrade}
+              className="pointer-events-auto flex-1 rounded-full px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500 transition-colors hover:text-white"
+            >
+              Options
+            </button>
+          </div>
         </div>
       </div>
 
@@ -305,10 +339,14 @@ export function StockDetail({
                   <LayoutGrid size={16} className="shrink-0 text-zinc-600 group-hover:text-white" />
                   <span className="text-[7px] font-black uppercase tracking-widest text-zinc-600 truncate">More</span>
                 </div>
-                <div className="flex flex-col items-center gap-1 cursor-pointer group min-w-0">
+                <button
+                  type="button"
+                  onClick={() => router.push(`/?tab=trade&assetClass=options&ticker=${stock.symbol}`)}
+                  className="flex flex-col items-center gap-1 cursor-pointer group min-w-0"
+                >
                   <PieChart size={16} className="shrink-0 text-zinc-600 group-hover:text-white" />
                   <span className="text-[7px] font-black uppercase tracking-widest text-zinc-600 truncate">Options</span>
-                </div>
+                </button>
               </div>
 
               <div className="flex min-w-0 flex-1 gap-2">

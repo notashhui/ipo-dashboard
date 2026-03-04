@@ -1,12 +1,14 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import type { ViewType, Stock, Order } from '@/lib/types'
 import { mockStocks } from '@/lib/mock-data'
 import { useIpoOrders } from '@/hooks/use-ipo-orders'
 import { useStockOrders } from '@/hooks/use-stock-orders'
 import { useHoldings } from '@/hooks/use-holdings'
 import { useCorporateActions } from '@/hooks/use-corporate-actions'
+import type { OptionsEntrySource } from '@/lib/open-options'
 
 // Navigation
 import { BottomNav, type TabType } from '@/components/trading/bottom-nav'
@@ -31,12 +33,16 @@ import { NewsDetail, sampleNewsArticle } from '@/components/trading/news-detail'
 import type { NewsItem } from '@/components/trading/global-news-center'
 
 export default function TradingApp() {
-  const [currentView, setCurrentView] = useState<ViewType>('square')
-  const [currentTab, setCurrentTab] = useState<TabType>('square')
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const initialTradeMode = searchParams.get('tab') === 'trade'
+  const [currentView, setCurrentView] = useState<ViewType>(initialTradeMode ? 'trade' : 'square')
+  const [currentTab, setCurrentTab] = useState<TabType>(initialTradeMode ? 'trade' : 'square')
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null)
   const [stockBadge, setStockBadge] = useState<string | undefined>(undefined)
+  const [selectedStockSource, setSelectedStockSource] = useState<OptionsEntrySource>('home')
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null)
-  const [viewHistory, setViewHistory] = useState<ViewType[]>(['square'])
+  const [viewHistory, setViewHistory] = useState<ViewType[]>(initialTradeMode ? ['trade'] : ['square'])
   const { orders, addOrder, cancelOrder } = useStockOrders()
   const { holdings } = useHoldings()
   const { ipoOrders, addIpoOrder } = useIpoOrders()
@@ -74,12 +80,13 @@ export default function TradingApp() {
   }, [cancelOrder, isOpenBuyOrder, orders])
 
   const handleNavigateToTrade = useCallback(() => {
+    router.replace('/?tab=trade')
     setCurrentTab('trade')
     setCurrentView('trade')
     setViewHistory(['trade'])
     setSelectedStock(null)
     setStockBadge(undefined)
-  }, [])
+  }, [router])
 
   const navigateTo = useCallback((view: ViewType) => {
     setViewHistory(prev => [...prev, view])
@@ -99,8 +106,19 @@ export default function TradingApp() {
   const handleStockSelect = useCallback((stock: Stock, badge?: string) => {
     setSelectedStock(stock)
     setStockBadge(badge)
+    setSelectedStockSource(currentView === 'markets' ? 'markets' : 'home')
     navigateTo('stock-detail')
-  }, [navigateTo])
+  }, [currentView, navigateTo])
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'trade' && currentView !== 'trade') {
+      setCurrentTab('trade')
+      setCurrentView('trade')
+      setViewHistory(['trade'])
+      setSelectedStock(null)
+      setStockBadge(undefined)
+    }
+  }, [currentView, searchParams])
 
   const handleStockSelectBySymbol = useCallback((symbol: string) => {
     const stock = mockStocks.find(s => s.symbol === symbol)
@@ -115,12 +133,19 @@ export default function TradingApp() {
   }, [navigateTo])
 
   const handleTabChange = useCallback((tab: TabType) => {
+    if (tab === 'trade') {
+      const nextParams = new URLSearchParams(searchParams.toString())
+      nextParams.set('tab', 'trade')
+      router.replace(`/?${nextParams.toString()}`)
+    } else if (searchParams.toString()) {
+      router.replace('/')
+    }
     setCurrentTab(tab)
     setCurrentView(tab)
     setViewHistory([tab])
     setSelectedStock(null)
     setStockBadge(undefined)
-  }, [])
+  }, [router, searchParams])
 
   const availableBalance = cashBalance
 
@@ -136,6 +161,8 @@ export default function TradingApp() {
           onNavigateToTrade={handleNavigateToTrade}
           availableBalance={availableBalance}
           upcomingCorporateAction={getUpcomingActionForTicker(selectedStock.symbol)}
+          optionsSource={selectedStockSource}
+          optionsReturnTo={`/stock/${selectedStock.symbol}`}
         />
       )
     }
