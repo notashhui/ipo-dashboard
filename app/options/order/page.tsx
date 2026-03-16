@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, ChevronLeft, ShieldAlert } from 'lucide-react'
 import { useOptionsOrders } from '@/hooks/use-options-orders'
@@ -69,6 +69,14 @@ function calculateOrderMetrics(
 }
 
 export default function OptionsOrderPage() {
+  return (
+    <Suspense fallback={null}>
+      <OptionsOrderContent />
+    </Suspense>
+  )
+}
+
+function OptionsOrderContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const contractId = searchParams.get('contract') ?? ''
