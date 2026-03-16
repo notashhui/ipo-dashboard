@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, Bell, Filter, Clock, Trash2, TrendingUp, ShieldCheck, ChevronRight, PieChart, ChevronLeft, X, Minus, Plus } from 'lucide-react'
+import { Search, Bell, Filter, Clock, Trash2, TrendingUp, ShieldCheck, ChevronRight, PieChart, ChevronLeft, X, Minus, Plus, ArrowLeft, ChevronUp, ChevronDown, ShieldAlert } from 'lucide-react'
 import type { Order, IpoOrder } from '@/lib/types'
 import { IpoOrderCard } from './ipo-order-card'
 
@@ -217,7 +217,7 @@ export function TradeView({ orders = [], ipoOrders = [], onCancelOrder, optionsT
             ))
           )
         ) : (
-          <OptionsPanel key={optionsTicker ?? '__selector__'} ticker={optionsTicker} onOrderSubmit={onOrderSubmit} />
+          <OptionsPanel key={optionsTicker ?? '__selector__'} ticker={optionsTicker} onOrderSubmit={onOrderSubmit} onOrderPlaced={() => setActiveTab('active')} />
         )}
       </div>
 
@@ -466,37 +466,84 @@ type ContractSelection = {
   iv: string
 }
 
-function OptionsPanel({ ticker, onOrderSubmit }: { ticker?: string; onOrderSubmit?: (order: Order) => void }) {
+function OptionsPanel({
+  ticker,
+  onOrderSubmit,
+  onOrderPlaced,
+}: {
+  ticker?: string
+  onOrderSubmit?: (order: Order) => void
+  onOrderPlaced?: () => void
+}) {
   const [selectedUnderlying, setSelectedUnderlying] = useState<string | null>(ticker ?? null)
   const [contract, setContract] = useState<ContractSelection | null>(null)
   const [orderSide, setOrderSide] = useState<'buy' | 'sell'>('buy')
   const [qty, setQty] = useState(1)
+  const [step, setStep] = useState<'ticket' | 'review'>('ticket')
+  const [orderType, setOrderType] = useState<'limit' | 'market'>('limit')
+  const [limitPrice, setLimitPrice] = useState(0)
 
   const selectContract = (c: ContractSelection, defaultSide: 'buy' | 'sell') => {
-    setContract(prev => (prev?.strike === c.strike && prev?.optionType === c.optionType) ? null : c)
-    setOrderSide(defaultSide)
-    setQty(1)
+    const isSame = contract?.strike === c.strike && contract?.optionType === c.optionType
+    if (isSame) {
+      setContract(null)
+      setStep('ticket')
+    } else {
+      setContract(c)
+      setOrderSide(defaultSide)
+      setQty(1)
+      setStep('ticket')
+      setOrderType('limit')
+      setLimitPrice(defaultSide === 'buy' ? c.ask : c.bid)
+    }
   }
+
+  const handleLimitPriceChange = (delta: number) => {
+    setLimitPrice(prev => Math.max(0.01, Number((prev + delta).toFixed(2))))
+  }
+
+  const execPrice = orderType === 'market'
+    ? (contract ? (orderSide === 'buy' ? contract.ask : contract.bid) : 0)
+    : limitPrice
+  const estimatedTotal = execPrice * qty * 100
+  const estimatedFees = qty > 0 ? Math.max(1.25, estimatedTotal * 0.0012) : 0
 
   const submitOrder = () => {
     if (!contract || !selectedUnderlying) return
-    const price = orderSide === 'buy' ? contract.ask : contract.bid
     const contractLabel = `${selectedUnderlying} ${contract.strike} ${contract.optionType.toUpperCase()}`
+    const submittedAt = new Date()
     const order: Order = {
       id: `opt-${Date.now()}`,
       refId: `OPT${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
       symbol: selectedUnderlying,
       name: contractLabel,
       type: orderSide,
-      orderType: 'limit',
-      price,
+      orderType,
+      price: execPrice,
       quantity: qty,
-      total: price * qty * 100,
-      status: 'pending',
-      timestamp: new Date(),
+      total: estimatedTotal,
+      status: 'submitted',
+      timestamp: submittedAt,
+      timestamps: {
+        createdAt: submittedAt.toISOString(),
+        updatedAt: submittedAt.toISOString(),
+        submittedAt: submittedAt.toISOString(),
+      },
+      execution: {
+        filledQuantity: 0,
+        remainingQuantity: qty,
+        progress: 0,
+      },
+      statusHistory: [{
+        status: 'submitted',
+        timestamp: submittedAt.toISOString(),
+        note: 'Options order received and routed for execution.',
+      }],
     }
     onOrderSubmit?.(order)
+    onOrderPlaced?.()
     setContract(null)
+    setStep('ticket')
   }
 
   // ── BRANCH A: no underlying chosen — render ONLY the selector ───────────────
@@ -649,80 +696,215 @@ function OptionsPanel({ ticker, onOrderSubmit }: { ticker?: string; onOrderSubmi
       {/* Inline contract order panel — shown only when a contract is selected */}
       {contract && (
         <div className="bg-zinc-900/70 border border-zinc-800 rounded-2xl p-4 space-y-4">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-widest">
-                {sym} ${contract.strike} {contract.optionType.toUpperCase()}
-              </p>
-              <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-wide mt-0.5">
-                Bid {contract.bid} · Ask {contract.ask} · IV {contract.iv}
-              </p>
-            </div>
-            <button onClick={() => setContract(null)} className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center">
-              <X size={14} className="text-zinc-400" />
-            </button>
-          </div>
+          {step === 'ticket' ? (
+            <>
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest">
+                    {sym} ${contract.strike} {contract.optionType.toUpperCase()}
+                  </p>
+                  <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-wide mt-0.5">
+                    Bid {contract.bid} · Ask {contract.ask} · IV {contract.iv}
+                  </p>
+                </div>
+                <button onClick={() => setContract(null)} className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center">
+                  <X size={14} className="text-zinc-400" />
+                </button>
+              </div>
 
-          {/* Buy / Sell toggle */}
-          <div className="flex rounded-xl overflow-hidden border border-zinc-800">
-            <button
-              onClick={() => setOrderSide('buy')}
-              className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest transition-colors ${
-                orderSide === 'buy' ? 'bg-[#F04438] text-white' : 'text-zinc-600'
-              }`}
-            >Buy</button>
-            <button
-              onClick={() => setOrderSide('sell')}
-              className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest transition-colors ${
-                orderSide === 'sell' ? 'bg-[#2E6BE6] text-white' : 'text-zinc-600'
-              }`}
-            >Sell</button>
-          </div>
+              {/* Buy / Sell toggle */}
+              <div className="flex rounded-xl overflow-hidden border border-zinc-800">
+                <button
+                  onClick={() => { setOrderSide('buy'); setLimitPrice(contract.ask) }}
+                  className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest transition-colors ${
+                    orderSide === 'buy' ? 'bg-[#F04438] text-white' : 'text-zinc-600'
+                  }`}
+                >Buy</button>
+                <button
+                  onClick={() => { setOrderSide('sell'); setLimitPrice(contract.bid) }}
+                  className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest transition-colors ${
+                    orderSide === 'sell' ? 'bg-[#2E6BE6] text-white' : 'text-zinc-600'
+                  }`}
+                >Sell</button>
+              </div>
 
-          {/* Quantity */}
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Contracts</p>
-            <div className="flex items-center gap-3">
+              {/* Order type toggle */}
+              <div className="bg-zinc-900/60 rounded-full p-1 flex">
+                <button
+                  onClick={() => setOrderType('limit')}
+                  className={`flex-1 py-2 rounded-full text-[11px] font-black uppercase tracking-[0.2em] transition-all ${
+                    orderType === 'limit' ? 'bg-zinc-800 text-white' : 'text-zinc-600'
+                  }`}
+                >Limit</button>
+                <button
+                  onClick={() => setOrderType('market')}
+                  className={`flex-1 py-2 rounded-full text-[11px] font-black uppercase tracking-[0.2em] transition-all ${
+                    orderType === 'market' ? 'bg-zinc-800 text-white' : 'text-zinc-600'
+                  }`}
+                >Market</button>
+              </div>
+
+              {/* Limit price input */}
+              {orderType === 'limit' && (
+                <div className="bg-zinc-900/40 rounded-2xl p-4 border border-zinc-900">
+                  <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-3">Limit Price (USD)</p>
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => handleLimitPriceChange(-0.01)}
+                      className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center hover:bg-zinc-700 active:scale-95"
+                    >
+                      <Minus size={18} className="text-zinc-400" />
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <span className="text-3xl font-black tabular-nums">{limitPrice.toFixed(2)}</span>
+                      <div className="flex flex-col gap-0.5">
+                        <button onClick={() => handleLimitPriceChange(0.01)} className="p-1 hover:bg-zinc-800 rounded">
+                          <ChevronUp size={13} className="text-zinc-600" />
+                        </button>
+                        <button onClick={() => handleLimitPriceChange(-0.01)} className="p-1 hover:bg-zinc-800 rounded">
+                          <ChevronDown size={13} className="text-zinc-600" />
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleLimitPriceChange(0.01)}
+                      className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center hover:bg-zinc-700 active:scale-95"
+                    >
+                      <Plus size={18} className="text-zinc-400" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {orderType === 'market' && (
+                <div className="bg-zinc-900/40 rounded-2xl p-4 border border-zinc-900">
+                  <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Market Price</p>
+                  <p className="text-2xl font-black tabular-nums text-center">${execPrice.toFixed(2)}</p>
+                  <p className="text-[10px] text-center text-zinc-600 mt-1">Order will route at best available price.</p>
+                </div>
+              )}
+
+              {/* Quantity */}
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Contracts</p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setQty(q => Math.max(1, q - 1))}
+                    className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center active:scale-90 transition-transform"
+                  ><Minus size={14} className="text-zinc-400" /></button>
+                  <span className="text-base font-black tabular-nums w-6 text-center">{qty}</span>
+                  <button
+                    onClick={() => setQty(q => q + 1)}
+                    className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center active:scale-90 transition-transform"
+                  ><Plus size={14} className="text-zinc-400" /></button>
+                </div>
+              </div>
+
+              {/* Estimated costs */}
+              <div className="bg-zinc-900/40 rounded-2xl p-4 border border-zinc-900 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Est. Transaction</span>
+                  <span className="text-lg font-black tabular-nums">${estimatedTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-zinc-700 uppercase tracking-widest">Est. Fees</span>
+                  <span className="text-[11px] font-bold text-zinc-300">${estimatedFees.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Review Order button */}
               <button
-                onClick={() => setQty(q => Math.max(1, q - 1))}
-                className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center active:scale-90 transition-transform"
-              ><Minus size={14} className="text-zinc-400" /></button>
-              <span className="text-base font-black tabular-nums w-6 text-center">{qty}</span>
+                onClick={() => setStep('review')}
+                disabled={qty <= 0}
+                className={`w-full py-4 rounded-xl font-black text-sm uppercase tracking-[0.3em] transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
+                  orderSide === 'buy'
+                    ? 'bg-[#F04438] text-white shadow-lg shadow-[#F04438]/20 hover:bg-[#F04438]/90'
+                    : 'bg-[#2E6BE6] text-white shadow-lg shadow-[#2E6BE6]/20 hover:bg-[#2E6BE6]/90'
+                }`}
+              >
+                Review Order
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Review step */}
               <button
-                onClick={() => setQty(q => q + 1)}
-                className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center active:scale-90 transition-transform"
-              ><Plus size={14} className="text-zinc-400" /></button>
-            </div>
-          </div>
+                type="button"
+                onClick={() => setStep('ticket')}
+                className="inline-flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-zinc-500 hover:text-white"
+              >
+                <ArrowLeft size={14} />
+                Edit Ticket
+              </button>
 
-          {/* Price summary */}
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="text-zinc-600 font-bold uppercase tracking-widest">Limit price</span>
-            <span className="font-black tabular-nums">${(orderSide === 'buy' ? contract.ask : contract.bid).toFixed(2)}</span>
-          </div>
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="text-zinc-600 font-bold uppercase tracking-widest">Estimated total</span>
-            <span className="font-black tabular-nums">
-              ${((orderSide === 'buy' ? contract.ask : contract.bid) * qty * 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-            </span>
-          </div>
+              <div className="bg-zinc-900/40 rounded-2xl p-4 border border-zinc-900">
+                <div className="grid grid-cols-2 gap-4">
+                  <OptionsReviewField label="Contract" value={`${sym} ${contract.strike} ${contract.optionType.toUpperCase()}`} />
+                  <OptionsReviewField label="Side" value={orderSide.toUpperCase()} accent={orderSide === 'buy' ? 'text-[#F04438]' : 'text-[#2E6BE6]'} />
+                  <OptionsReviewField label="Order Type" value={orderType.toUpperCase()} />
+                  <OptionsReviewField label="Contracts" value={`${qty} × 100`} />
+                  <OptionsReviewField label="Limit Price" value={orderType === 'limit' ? `$${limitPrice.toFixed(2)}` : 'Market'} />
+                  <OptionsReviewField label="Est. Total" value={`$${estimatedTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
+                  <OptionsReviewField label="Est. Fees" value={`$${estimatedFees.toFixed(2)}`} />
+                  <OptionsReviewField
+                    label="Buying Power"
+                    value={`${orderSide === 'buy' ? '-' : '+'}$${(estimatedTotal + (orderSide === 'buy' ? estimatedFees : -estimatedFees)).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                    accent={orderSide === 'buy' ? 'text-amber-400' : 'text-emerald-400'}
+                  />
+                </div>
+              </div>
 
-          {/* Submit */}
-          <button
-            onClick={submitOrder}
-            className={`w-full py-3.5 rounded-[2px] font-black text-xs uppercase tracking-[0.3em] text-white transition-all active:scale-[0.98] ${
-              orderSide === 'buy' ? 'bg-[#F04438] shadow-lg shadow-[#F04438]/20' : 'bg-[#2E6BE6] shadow-lg shadow-[#2E6BE6]/20'
-            }`}
-          >
-            {orderSide === 'buy' ? 'Buy' : 'Sell'} {qty} × {contract.optionType.toUpperCase()}
-          </button>
+              {/* Risk disclosure */}
+              <div className="bg-amber-500/10 rounded-2xl p-4 border border-amber-500/20">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 w-8 h-8 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+                    <ShieldAlert size={16} className="text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-widest text-amber-300">Risk Disclosure</p>
+                    <p className="text-xs text-zinc-300 mt-1.5 leading-relaxed">
+                      Options trading involves significant risk. Market conditions may change between submission and execution. Options can expire worthless and you may lose the entire premium paid.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={submitOrder}
+                className={`w-full py-4 rounded-xl font-black text-sm uppercase tracking-[0.3em] transition-all ${
+                  orderSide === 'buy'
+                    ? 'bg-[#F04438] text-white shadow-lg shadow-[#F04438]/20 hover:bg-[#F04438]/90'
+                    : 'bg-[#2E6BE6] text-white shadow-lg shadow-[#2E6BE6]/20 hover:bg-[#2E6BE6]/90'
+                }`}
+              >
+                Place Order
+              </button>
+            </>
+          )}
         </div>
       )}
 
       <p className="text-[9px] text-zinc-700 uppercase tracking-widest text-center pt-1">
         Options trading involves risk · Prices are indicative
       </p>
+    </div>
+  )
+}
+
+function OptionsReviewField({
+  label,
+  value,
+  accent = 'text-white',
+}: {
+  label: string
+  value: string
+  accent?: string
+}) {
+  return (
+    <div>
+      <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest mb-1">{label}</p>
+      <p className={`text-sm font-black ${accent}`}>{value}</p>
     </div>
   )
 }
