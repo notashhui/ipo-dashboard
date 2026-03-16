@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { getStockByTicker } from '@/lib/get-stock-by-ticker'
 import { StockDetail } from '@/components/trading/stock-detail'
@@ -11,6 +11,14 @@ import type { OptionsEntrySource } from '@/lib/open-options'
 const ROUTE_AVAILABLE_BALANCE = 1284560
 
 export default function StockDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <StockDetailContent />
+    </Suspense>
+  )
+}
+
+function StockDetailContent() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()

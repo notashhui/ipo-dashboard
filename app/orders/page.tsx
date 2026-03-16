@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { Suspense, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Clock3, ListOrdered, MoreHorizontal } from 'lucide-react'
@@ -41,6 +41,14 @@ const formatTimestamp = (value: Date | string) =>
   })
 
 export default function OrdersPage() {
+  return (
+    <Suspense fallback={null}>
+      <OrdersContent />
+    </Suspense>
+  )
+}
+
+function OrdersContent() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
