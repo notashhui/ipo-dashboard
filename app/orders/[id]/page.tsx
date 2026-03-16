@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, Clock3, FileText, ShieldCheck } from 'lucide-react'
@@ -38,6 +38,14 @@ const formatDateTime = (value: Date | string) =>
   })
 
 export default function OrderDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <OrderDetailContent />
+    </Suspense>
+  )
+}
+
+function OrderDetailContent() {
   const router = useRouter()
   const params = useParams()
   const searchParams = useSearchParams()
