@@ -216,7 +216,7 @@ export function TradeView({ orders = [], ipoOrders = [], onCancelOrder, optionsT
             ))
           )
         ) : (
-          <OptionsPanel ticker={optionsTicker} />
+          <OptionsPanel key={optionsTicker ?? '__selector__'} ticker={optionsTicker} />
         )}
       </div>
 
@@ -458,15 +458,16 @@ const DEFAULT_CHAIN = [
 ]
 
 function OptionsPanel({ ticker }: { ticker?: string }) {
-  const [selectedUnderlying, setSelectedUnderlying] = useState<string | null>(ticker ?? null)
+  // selectedUnderlying is initialised once on mount from the ticker prop.
+  // The parent passes `key={optionsTicker ?? '__selector__'}` so this
+  // component is fully remounted whenever ticker changes — useState always
+  // starts with the correct value and no useEffect is needed.
+  const [selectedUnderlying, setSelectedUnderlying] = useState<string | null>(
+    ticker ?? null
+  )
 
-  // If a ticker is passed via prop, jump straight to the chain view
-  useEffect(() => {
-    if (ticker) setSelectedUnderlying(ticker)
-  }, [ticker])
-
-  // ── Step 1: no underlying chosen yet ────────────────────────────────────────
-  if (!selectedUnderlying) {
+  // ── BRANCH A: no underlying chosen — render ONLY the selector ───────────────
+  if (selectedUnderlying === null) {
     return (
       <div className="space-y-3">
         <div>
@@ -500,10 +501,12 @@ function OptionsPanel({ ticker }: { ticker?: string }) {
     )
   }
 
-  // ── Step 2: underlying selected — show positions + chain ────────────────────
-  const positions = MOCK_POSITIONS[selectedUnderlying] ?? []
-  const chain = MOCK_CHAINS[selectedUnderlying] ?? DEFAULT_CHAIN
-  const underlying = UNDERLYINGS.find(u => u.symbol === selectedUnderlying)
+  // ── BRANCH B: underlying chosen — render ONLY positions + chain ─────────────
+  // (selectedUnderlying is guaranteed non-null here; selector is NOT rendered)
+  const sym = selectedUnderlying
+  const positions = MOCK_POSITIONS[sym] ?? []
+  const chain = MOCK_CHAINS[sym] ?? DEFAULT_CHAIN
+  const underlying = UNDERLYINGS.find(u => u.symbol === sym)
 
   return (
     <div className="space-y-5">
@@ -517,7 +520,7 @@ function OptionsPanel({ ticker }: { ticker?: string }) {
         </button>
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-purple-400">
-            {selectedUnderlying} · Options
+            {sym} · Options
           </p>
           {underlying && (
             <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-wide">{underlying.name}</p>
@@ -528,7 +531,7 @@ function OptionsPanel({ ticker }: { ticker?: string }) {
         </div>
       </div>
 
-      {/* My Positions — only if the user holds options on this underlying */}
+      {/* My Positions — only rendered when positions exist for this underlying */}
       {positions.length > 0 && (
         <div className="space-y-2">
           <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">My Positions</p>
@@ -544,7 +547,7 @@ function OptionsPanel({ ticker }: { ticker?: string }) {
                   {pos.type}
                 </div>
                 <div className="flex-1">
-                  <p className="text-xs font-black">{selectedUnderlying} ${pos.strike} {pos.expiry}</p>
+                  <p className="text-xs font-black">{sym} ${pos.strike} {pos.expiry}</p>
                   <p className="text-[10px] text-zinc-600 font-bold">
                     {pos.qty} contracts · avg ${pos.avgCost.toFixed(2)}
                   </p>
@@ -565,7 +568,6 @@ function OptionsPanel({ ticker }: { ticker?: string }) {
       <div className="space-y-2">
         <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Options Chain</p>
 
-        {/* Column headers */}
         <div className="grid grid-cols-7 text-[9px] font-black uppercase tracking-widest text-zinc-600 px-1">
           <span className="col-span-3 text-center">Call</span>
           <span className="text-center">Strike</span>
