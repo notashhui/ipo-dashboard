@@ -4,12 +4,16 @@ import { useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getStockByTicker } from '@/lib/get-stock-by-ticker'
 import { StockDetail } from '@/components/trading/stock-detail'
+import { useStockOrders } from '@/hooks/use-stock-orders'
+import { useCorporateActions } from '@/hooks/use-corporate-actions'
 
 const ROUTE_AVAILABLE_BALANCE = 1284560
 
 export default function StockDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const { addOrder } = useStockOrders()
+  const { getUpcomingActionForTicker } = useCorporateActions()
   const ticker = typeof params.ticker === 'string' ? params.ticker : ''
   const stock = getStockByTicker(ticker)
 
@@ -82,9 +86,10 @@ export default function StockDetailPage() {
       <StockDetail
         stock={stock}
         onBack={handleGoBack}
-        onOrderSubmit={undefined}
+        onOrderSubmit={addOrder}
         onNavigateToTrade={() => router.push('/')}
         availableBalance={ROUTE_AVAILABLE_BALANCE}
+        upcomingCorporateAction={getUpcomingActionForTicker(stock.symbol)}
       />
     </div>
   )

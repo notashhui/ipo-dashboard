@@ -307,8 +307,39 @@ export interface Order {
   price: number
   quantity: number
   total: number
-  status: 'pending' | 'filled' | 'cancelled'
+  status: OrderStatus
   timestamp: Date
+  timestamps?: OrderTimestamps
+  execution?: OrderExecution
+  statusHistory?: OrderStatusEvent[]
+}
+
+export type OrderStatus =
+  | 'pending'
+  | 'submitted'
+  | 'partially_filled'
+  | 'filled'
+  | 'cancelled'
+
+export interface OrderTimestamps {
+  createdAt: string
+  updatedAt: string
+  submittedAt?: string
+  filledAt?: string
+  cancelledAt?: string
+}
+
+export interface OrderExecution {
+  filledQuantity: number
+  remainingQuantity: number
+  progress: number
+  avgFilledPrice?: number
+}
+
+export interface OrderStatusEvent {
+  status: OrderStatus
+  timestamp: string
+  note?: string
 }
 
 export interface IpoOrder {
@@ -340,4 +371,41 @@ export interface Holding {
   unrealizedPL: number
   unrealizedPLPercent: number
   color: string
+}
+
+export type CorporateActionType = 'split' | 'reverse_split'
+export type CorporateActionStatus = 'upcoming' | 'applied'
+
+export interface CorporateActionSnapshot {
+  shares: number
+  avgCost: number
+  totalCost: number
+  estimatedPriceAfter: number
+  estimatedValue: number
+}
+
+export interface CorporateActionHistoryEntry {
+  status: CorporateActionStatus
+  timestamp: string
+  note: string
+}
+
+export interface CorporateAction {
+  id: string
+  ticker: string
+  type: CorporateActionType
+  ratioNumerator: number
+  ratioDenominator: number
+  effectiveAt: string
+  createdAt: string
+  appliedAt?: string
+  status: CorporateActionStatus
+  snapshots: {
+    before: CorporateActionSnapshot
+    after: CorporateActionSnapshot
+  }
+  cashInLieu?: number
+  notes: string[]
+  disclosures: string[]
+  history: CorporateActionHistoryEntry[]
 }

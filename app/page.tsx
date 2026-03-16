@@ -2,9 +2,12 @@
 
 import { useState, useCallback, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import type { ViewType, Stock, Order, Holding } from '@/lib/types'
+import type { ViewType, Stock, Order } from '@/lib/types'
 import { mockStocks } from '@/lib/mock-data'
 import { useIpoOrders } from '@/hooks/use-ipo-orders'
+import { useStockOrders } from '@/hooks/use-stock-orders'
+import { useHoldings } from '@/hooks/use-holdings'
+import { useCorporateActions } from '@/hooks/use-corporate-actions'
 
 // Navigation
 import { BottomNav, type TabType } from '@/components/trading/bottom-nav'
@@ -28,44 +31,6 @@ import { IndustryChainModule } from '@/components/trading/industry-chain-module'
 import { NewsDetail, sampleNewsArticle } from '@/components/trading/news-detail'
 import type { NewsItem } from '@/components/trading/global-news-center'
 
-// Stock color mapping for avatars
-const stockColors: Record<string, string> = {
-  'NVDA': '#dc2626',
-  'AAPL': '#78350f',
-  'TSLA': '#059669',
-  'MSFT': '#dc2626',
-  'GOOGL': '#2563eb',
-  'AMZN': '#f59e0b',
-  'META': '#3b82f6',
-  '00700': '#065f46',
-}
-
-// Initial holdings (pre-existing portfolio)
-const initialHoldings: Holding[] = [
-  {
-    symbol: 'NVDA',
-    name: 'NVIDIA Corp',
-    quantity: 500,
-    avgCost: 128.00,
-    currentPrice: 135.58,
-    marketValue: 67790,
-    unrealizedPL: 3390,
-    unrealizedPLPercent: 2.45,
-    color: stockColors['NVDA'] || '#3f3f46'
-  },
-  {
-    symbol: '00700',
-    name: 'Tencent Holdings',
-    quantity: 2000,
-    avgCost: 390.00,
-    currentPrice: 410.20,
-    marketValue: 820400,
-    unrealizedPL: 41020,
-    unrealizedPLPercent: 5.26,
-    color: stockColors['00700'] || '#3f3f46'
-  }
-]
-
 function TradingApp() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -75,10 +40,11 @@ function TradingApp() {
   const [stockBadge, setStockBadge] = useState<string | undefined>(undefined)
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null)
   const [viewHistory, setViewHistory] = useState<ViewType[]>(['square'])
-  const [orders, setOrders] = useState<Order[]>([])
-  const [holdings, setHoldings] = useState<Holding[]>(initialHoldings)
   const [optionsTicker, setOptionsTicker] = useState<string | undefined>(undefined)
+  const { orders, addOrder, cancelOrder } = useStockOrders()
+  const { holdings } = useHoldings()
   const { ipoOrders, addIpoOrder } = useIpoOrders()
+  const { actions, getUpcomingActionForTicker, getAppliedActionForTickerToday } = useCorporateActions()
 
   // Read URL search params and navigate accordingly
   useEffect(() => {
@@ -91,12 +57,7 @@ function TradingApp() {
       setViewHistory(['trade'])
       setSelectedStock(null)
       setStockBadge(undefined)
-      if (assetClass === 'options') {
-        setOptionsTicker(ticker ?? undefined)
-      } else {
-        setOptionsTicker(undefined)
-      }
-      // Clean the URL so back-navigation works cleanly
+      setOptionsTicker(assetClass === 'options' ? (ticker ?? undefined) : undefined)
       router.replace('/')
     }
   }, [searchParams, router])
@@ -107,107 +68,30 @@ function TradingApp() {
   const securitiesValue = holdings.reduce((sum, h) => sum + h.marketValue, 0)
   const [cashBalance, setCashBalance] = useState(initialTotal - securitiesValue - earnValue)
 
-  // Handle order submission with proper logic for limit vs market orders
+  const isOpenBuyOrder = useCallback((order: Order) => {
+    return order.type === 'buy' && ['pending', 'submitted', 'partially_filled'].includes(order.status)
+  }, [])
+
   const handleOrderSubmit = useCallback((order: Order) => {
-    setOrders(prev => [order, ...prev])
-    
-    // For MARKET orders: execute immediately and update holdings
-    if (order.orderType === 'market') {
-      if (order.type === 'buy') {
-        // Deduct cash
-        setCashBalance(prev => prev - order.total)
-        
-        // Add to holdings
-        setHoldings(prev => {
-          const existingIndex = prev.findIndex(h => h.symbol === order.symbol)
-          if (existingIndex >= 0) {
-            // Update existing holding
-            const existing = prev[existingIndex]
-            const newQuantity = existing.quantity + order.quantity
-            const newAvgCost = ((existing.avgCost * existing.quantity) + (order.price * order.quantity)) / newQuantity
-            const newMarketValue = newQuantity * order.price
-            const newUnrealizedPL = (order.price - newAvgCost) * newQuantity
-            const newUnrealizedPLPercent = (newUnrealizedPL / (newAvgCost * newQuantity)) * 100
-            
-            const updated = [...prev]
-            updated[existingIndex] = {
-              ...existing,
-              quantity: newQuantity,
-              avgCost: newAvgCost,
-              currentPrice: order.price,
-              marketValue: newMarketValue,
-              unrealizedPL: newUnrealizedPL,
-              unrealizedPLPercent: newUnrealizedPLPercent
-            }
-            return updated
-          } else {
-            // Create new holding
-            return [...prev, {
-              symbol: order.symbol,
-              name: order.name,
-              quantity: order.quantity,
-              avgCost: order.price,
-              currentPrice: order.price,
-              marketValue: order.total,
-              unrealizedPL: 0,
-              unrealizedPLPercent: 0,
-              color: stockColors[order.symbol] || '#3f3f46'
-            }]
-          }
-        })
-      } else {
-        // SELL order
-        setCashBalance(prev => prev + order.total)
-        
-        setHoldings(prev => {
-          const existingIndex = prev.findIndex(h => h.symbol === order.symbol)
-          if (existingIndex >= 0) {
-            const existing = prev[existingIndex]
-            const newQuantity = existing.quantity - order.quantity
-            
-            if (newQuantity <= 0) {
-              // Remove holding entirely
-              return prev.filter((_, i) => i !== existingIndex)
-            }
-            
-            const newMarketValue = newQuantity * existing.currentPrice
-            const newUnrealizedPL = (existing.currentPrice - existing.avgCost) * newQuantity
-            const newUnrealizedPLPercent = (newUnrealizedPL / (existing.avgCost * newQuantity)) * 100
-            
-            const updated = [...prev]
-            updated[existingIndex] = {
-              ...existing,
-              quantity: newQuantity,
-              marketValue: newMarketValue,
-              unrealizedPL: newUnrealizedPL,
-              unrealizedPLPercent: newUnrealizedPLPercent
-            }
-            return updated
-          }
-          return prev
-        })
-      }
-    }
-    // For LIMIT orders: only reserve cash for buy orders, don't update holdings yet
-    else if (order.orderType === 'limit' && order.type === 'buy') {
+    addOrder(order)
+
+    if (isOpenBuyOrder(order)) {
       setCashBalance(prev => prev - order.total)
     }
-  }, [])
+  }, [addOrder, isOpenBuyOrder])
 
   const handleCancelOrder = useCallback((orderId: string) => {
     const order = orders.find(o => o.id === orderId)
-    
-    setOrders(prev => prev.map(o => 
-      o.id === orderId 
-        ? { ...o, status: 'cancelled' as const }
-        : o
-    ))
-    
-    // Refund cash for pending buy orders
-    if (order && order.type === 'buy' && order.status === 'pending') {
-      setCashBalance(prev => prev + order.total)
+    cancelOrder(orderId)
+
+    if (order && isOpenBuyOrder(order)) {
+      const remainingAmount = order.execution
+        ? order.execution.remainingQuantity * order.price
+        : order.total
+
+      setCashBalance(prev => prev + remainingAmount)
     }
-  }, [orders])
+  }, [cancelOrder, isOpenBuyOrder, orders])
 
   const handleNavigateToTrade = useCallback(() => {
     setCurrentTab('trade')
@@ -258,11 +142,7 @@ function TradingApp() {
     setStockBadge(undefined)
   }, [])
 
-  // Calculate available balance (cash not reserved for pending orders)
-  const pendingBuyTotal = orders
-    .filter(o => o.status === 'pending' && o.type === 'buy')
-    .reduce((sum, o) => sum + o.total, 0)
-  const availableBalance = cashBalance + pendingBuyTotal
+  const availableBalance = cashBalance
 
   const renderView = () => {
     // Stock Detail - Universal Page
@@ -275,13 +155,12 @@ function TradingApp() {
           onOrderSubmit={handleOrderSubmit}
           onNavigateToTrade={handleNavigateToTrade}
           availableBalance={availableBalance}
+          upcomingCorporateAction={getUpcomingActionForTicker(selectedStock.symbol)}
         />
       )
     }
 
-    // News Detail
     if (currentView === 'news-detail') {
-      // Create article from selected news or use sample
       const article = selectedNews ? {
         id: selectedNews.id,
         source: selectedNews.source,
@@ -310,7 +189,19 @@ function TradingApp() {
       case 'trade':
         return <TradeView orders={orders} ipoOrders={ipoOrders} onCancelOrder={handleCancelOrder} optionsTicker={optionsTicker} />
       case 'assets':
-        return <AssetsView holdings={holdings} cashBalance={cashBalance} onStockSelect={handleStockSelectBySymbol} />
+        return (
+          <AssetsView
+            holdings={holdings}
+            cashBalance={cashBalance}
+            onStockSelect={handleStockSelectBySymbol}
+            upcomingCorporateActionsCount={actions.filter((action) => action.status === 'upcoming').length}
+            appliedActionIdsByTicker={Object.fromEntries(
+              holdings
+                .map((holding) => [holding.symbol, getAppliedActionForTickerToday(holding.symbol)?.id])
+                .filter((entry): entry is [string, string] => Boolean(entry[1]))
+            )}
+          />
+        )
       
       // Module Views
       case 'ipo':
@@ -364,7 +255,7 @@ function TradingApp() {
         return <IndustryChainModule onBack={goBack} onStockSelect={handleStockSelect} />
       
       default:
-        return <SquareView onNavigate={navigateTo} />
+        return <SquareView onNavigate={navigateTo} onNewsSelect={handleNewsSelect} />
     }
   }
 
