@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, Bell, Filter, Clock, Trash2, TrendingUp, ShieldCheck, ChevronRight, PieChart, ChevronLeft } from 'lucide-react'
+import { Search, Bell, Filter, Clock, Trash2, TrendingUp, ShieldCheck, ChevronRight, PieChart, ChevronLeft, X, Minus, Plus } from 'lucide-react'
 import type { Order, IpoOrder } from '@/lib/types'
 import { IpoOrderCard } from './ipo-order-card'
 
@@ -10,9 +10,10 @@ interface TradeViewProps {
   ipoOrders?: IpoOrder[]
   onCancelOrder?: (orderId: string) => void
   optionsTicker?: string
+  onOrderSubmit?: (order: Order) => void
 }
 
-export function TradeView({ orders = [], ipoOrders = [], onCancelOrder, optionsTicker }: TradeViewProps) {
+export function TradeView({ orders = [], ipoOrders = [], onCancelOrder, optionsTicker, onOrderSubmit }: TradeViewProps) {
   const [activeTab, setActiveTab] = useState<'active' | 'logs' | 'ipo' | 'options'>('active')
 
   useEffect(() => {
@@ -216,7 +217,7 @@ export function TradeView({ orders = [], ipoOrders = [], onCancelOrder, optionsT
             ))
           )
         ) : (
-          <OptionsPanel key={optionsTicker ?? '__selector__'} ticker={optionsTicker} />
+          <OptionsPanel key={optionsTicker ?? '__selector__'} ticker={optionsTicker} onOrderSubmit={onOrderSubmit} />
         )}
       </div>
 
@@ -457,14 +458,46 @@ const DEFAULT_CHAIN = [
   { strike: 105, call: { bid: 2.50, ask: 2.80, iv: '39%' }, put: { bid: 7.50, ask: 7.80, iv: '41%' } },
 ]
 
-function OptionsPanel({ ticker }: { ticker?: string }) {
-  // selectedUnderlying is initialised once on mount from the ticker prop.
-  // The parent passes `key={optionsTicker ?? '__selector__'}` so this
-  // component is fully remounted whenever ticker changes — useState always
-  // starts with the correct value and no useEffect is needed.
-  const [selectedUnderlying, setSelectedUnderlying] = useState<string | null>(
-    ticker ?? null
-  )
+type ContractSelection = {
+  strike: number
+  optionType: 'call' | 'put'
+  bid: number
+  ask: number
+  iv: string
+}
+
+function OptionsPanel({ ticker, onOrderSubmit }: { ticker?: string; onOrderSubmit?: (order: Order) => void }) {
+  const [selectedUnderlying, setSelectedUnderlying] = useState<string | null>(ticker ?? null)
+  const [contract, setContract] = useState<ContractSelection | null>(null)
+  const [orderSide, setOrderSide] = useState<'buy' | 'sell'>('buy')
+  const [qty, setQty] = useState(1)
+
+  const selectContract = (c: ContractSelection, defaultSide: 'buy' | 'sell') => {
+    setContract(prev => (prev?.strike === c.strike && prev?.optionType === c.optionType) ? null : c)
+    setOrderSide(defaultSide)
+    setQty(1)
+  }
+
+  const submitOrder = () => {
+    if (!contract || !selectedUnderlying) return
+    const price = orderSide === 'buy' ? contract.ask : contract.bid
+    const contractLabel = `${selectedUnderlying} ${contract.strike} ${contract.optionType.toUpperCase()}`
+    const order: Order = {
+      id: `opt-${Date.now()}`,
+      refId: `OPT${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+      symbol: selectedUnderlying,
+      name: contractLabel,
+      type: orderSide,
+      orderType: 'limit',
+      price,
+      quantity: qty,
+      total: price * qty * 100,
+      status: 'pending',
+      timestamp: new Date(),
+    }
+    onOrderSubmit?.(order)
+    setContract(null)
+  }
 
   // ── BRANCH A: no underlying chosen — render ONLY the selector ───────────────
   if (selectedUnderlying === null) {
@@ -502,7 +535,6 @@ function OptionsPanel({ ticker }: { ticker?: string }) {
   }
 
   // ── BRANCH B: underlying chosen — render ONLY positions + chain ─────────────
-  // (selectedUnderlying is guaranteed non-null here; selector is NOT rendered)
   const sym = selectedUnderlying
   const positions = MOCK_POSITIONS[sym] ?? []
   const chain = MOCK_CHAINS[sym] ?? DEFAULT_CHAIN
@@ -513,15 +545,13 @@ function OptionsPanel({ ticker }: { ticker?: string }) {
       {/* Back button + title */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => setSelectedUnderlying(null)}
+          onClick={() => { setSelectedUnderlying(null); setContract(null) }}
           className="w-8 h-8 rounded-full bg-zinc-900 flex items-center justify-center active:scale-90 transition-transform"
         >
           <ChevronLeft size={16} className="text-zinc-400" />
         </button>
         <div>
-          <p className="text-xs font-black uppercase tracking-widest text-purple-400">
-            {sym} · Options
-          </p>
+          <p className="text-xs font-black uppercase tracking-widest text-purple-400">{sym} · Options</p>
           {underlying && (
             <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-wide">{underlying.name}</p>
           )}
@@ -531,7 +561,7 @@ function OptionsPanel({ ticker }: { ticker?: string }) {
         </div>
       </div>
 
-      {/* My Positions — only rendered when positions exist for this underlying */}
+      {/* My Positions */}
       {positions.length > 0 && (
         <div className="space-y-2">
           <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">My Positions</p>
@@ -548,9 +578,7 @@ function OptionsPanel({ ticker }: { ticker?: string }) {
                 </div>
                 <div className="flex-1">
                   <p className="text-xs font-black">{sym} ${pos.strike} {pos.expiry}</p>
-                  <p className="text-[10px] text-zinc-600 font-bold">
-                    {pos.qty} contracts · avg ${pos.avgCost.toFixed(2)}
-                  </p>
+                  <p className="text-[10px] text-zinc-600 font-bold">{pos.qty} contracts · avg ${pos.avgCost.toFixed(2)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-black tabular-nums">${pos.currentVal.toFixed(2)}</p>
@@ -566,12 +594,15 @@ function OptionsPanel({ ticker }: { ticker?: string }) {
 
       {/* Options Chain */}
       <div className="space-y-2">
-        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Options Chain</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+          Options Chain <span className="text-zinc-700 font-bold normal-case tracking-normal">· tap a contract to trade</span>
+        </p>
 
+        {/* Column headers */}
         <div className="grid grid-cols-7 text-[9px] font-black uppercase tracking-widest text-zinc-600 px-1">
-          <span className="col-span-3 text-center">Call</span>
+          <span className="col-span-3 text-center text-emerald-700">Call</span>
           <span className="text-center">Strike</span>
-          <span className="col-span-3 text-center">Put</span>
+          <span className="col-span-3 text-center text-red-800">Put</span>
         </div>
         <div className="grid grid-cols-7 text-[9px] font-bold uppercase tracking-widest text-zinc-700 px-1">
           <span>Bid</span><span>Ask</span><span>IV</span>
@@ -579,20 +610,115 @@ function OptionsPanel({ ticker }: { ticker?: string }) {
           <span>Bid</span><span>Ask</span><span>IV</span>
         </div>
 
-        {chain.map((row) => (
-          <div key={row.strike} className="grid grid-cols-7 text-[11px] font-bold px-1 items-center gap-x-1">
-            <span className="text-emerald-400">{row.call.bid}</span>
-            <span className="text-emerald-400">{row.call.ask}</span>
-            <span className="text-zinc-500">{row.call.iv}</span>
-            <span className="text-center font-black text-white bg-zinc-900 rounded px-1 py-0.5 text-[10px]">
-              {row.strike}
-            </span>
-            <span className="text-[#F04438]">{row.put.bid}</span>
-            <span className="text-[#F04438]">{row.put.ask}</span>
-            <span className="text-zinc-500">{row.put.iv}</span>
-          </div>
-        ))}
+        {chain.map((row) => {
+          const callSelected = contract?.strike === row.strike && contract?.optionType === 'call'
+          const putSelected  = contract?.strike === row.strike && contract?.optionType === 'put'
+          return (
+            <div key={row.strike} className="grid grid-cols-7 text-[11px] font-bold px-1 items-center gap-x-1">
+              {/* Call side — clickable */}
+              <button
+                onClick={() => selectContract({ strike: row.strike, optionType: 'call', ...row.call }, 'sell')}
+                className={`text-left tabular-nums rounded px-0.5 py-0.5 transition-colors ${callSelected ? 'text-white bg-emerald-600/30' : 'text-emerald-400 active:bg-emerald-900/40'}`}
+              >{row.call.bid}</button>
+              <button
+                onClick={() => selectContract({ strike: row.strike, optionType: 'call', ...row.call }, 'buy')}
+                className={`text-left tabular-nums rounded px-0.5 py-0.5 transition-colors ${callSelected ? 'text-white bg-emerald-600/30' : 'text-emerald-400 active:bg-emerald-900/40'}`}
+              >{row.call.ask}</button>
+              <span className={`text-zinc-500 ${callSelected ? 'text-emerald-300' : ''}`}>{row.call.iv}</span>
+
+              {/* Strike */}
+              <span className="text-center font-black text-white bg-zinc-900 rounded px-1 py-0.5 text-[10px]">
+                {row.strike}
+              </span>
+
+              {/* Put side — clickable */}
+              <button
+                onClick={() => selectContract({ strike: row.strike, optionType: 'put', ...row.put }, 'sell')}
+                className={`text-left tabular-nums rounded px-0.5 py-0.5 transition-colors ${putSelected ? 'text-white bg-red-700/30' : 'text-[#F04438] active:bg-red-900/40'}`}
+              >{row.put.bid}</button>
+              <button
+                onClick={() => selectContract({ strike: row.strike, optionType: 'put', ...row.put }, 'buy')}
+                className={`text-left tabular-nums rounded px-0.5 py-0.5 transition-colors ${putSelected ? 'text-white bg-red-700/30' : 'text-[#F04438] active:bg-red-900/40'}`}
+              >{row.put.ask}</button>
+              <span className={`text-zinc-500 ${putSelected ? 'text-red-300' : ''}`}>{row.put.iv}</span>
+            </div>
+          )
+        })}
       </div>
+
+      {/* Inline contract order panel — shown only when a contract is selected */}
+      {contract && (
+        <div className="bg-zinc-900/70 border border-zinc-800 rounded-2xl p-4 space-y-4">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest">
+                {sym} ${contract.strike} {contract.optionType.toUpperCase()}
+              </p>
+              <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-wide mt-0.5">
+                Bid {contract.bid} · Ask {contract.ask} · IV {contract.iv}
+              </p>
+            </div>
+            <button onClick={() => setContract(null)} className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center">
+              <X size={14} className="text-zinc-400" />
+            </button>
+          </div>
+
+          {/* Buy / Sell toggle */}
+          <div className="flex rounded-xl overflow-hidden border border-zinc-800">
+            <button
+              onClick={() => setOrderSide('buy')}
+              className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest transition-colors ${
+                orderSide === 'buy' ? 'bg-[#F04438] text-white' : 'text-zinc-600'
+              }`}
+            >Buy</button>
+            <button
+              onClick={() => setOrderSide('sell')}
+              className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest transition-colors ${
+                orderSide === 'sell' ? 'bg-[#2E6BE6] text-white' : 'text-zinc-600'
+              }`}
+            >Sell</button>
+          </div>
+
+          {/* Quantity */}
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Contracts</p>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setQty(q => Math.max(1, q - 1))}
+                className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center active:scale-90 transition-transform"
+              ><Minus size={14} className="text-zinc-400" /></button>
+              <span className="text-base font-black tabular-nums w-6 text-center">{qty}</span>
+              <button
+                onClick={() => setQty(q => q + 1)}
+                className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center active:scale-90 transition-transform"
+              ><Plus size={14} className="text-zinc-400" /></button>
+            </div>
+          </div>
+
+          {/* Price summary */}
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-zinc-600 font-bold uppercase tracking-widest">Limit price</span>
+            <span className="font-black tabular-nums">${(orderSide === 'buy' ? contract.ask : contract.bid).toFixed(2)}</span>
+          </div>
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-zinc-600 font-bold uppercase tracking-widest">Estimated total</span>
+            <span className="font-black tabular-nums">
+              ${((orderSide === 'buy' ? contract.ask : contract.bid) * qty * 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </span>
+          </div>
+
+          {/* Submit */}
+          <button
+            onClick={submitOrder}
+            className={`w-full py-3.5 rounded-[2px] font-black text-xs uppercase tracking-[0.3em] text-white transition-all active:scale-[0.98] ${
+              orderSide === 'buy' ? 'bg-[#F04438] shadow-lg shadow-[#F04438]/20' : 'bg-[#2E6BE6] shadow-lg shadow-[#2E6BE6]/20'
+            }`}
+          >
+            {orderSide === 'buy' ? 'Buy' : 'Sell'} {qty} × {contract.optionType.toUpperCase()}
+          </button>
+        </div>
+      )}
 
       <p className="text-[9px] text-zinc-700 uppercase tracking-widest text-center pt-1">
         Options trading involves risk · Prices are indicative

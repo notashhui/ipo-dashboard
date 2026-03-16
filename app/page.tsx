@@ -187,7 +187,7 @@ function TradingApp() {
       case 'markets':
         return <MarketsDashboard onNavigate={navigateTo} onStockSelect={handleStockSelect} />
       case 'trade':
-        return <TradeView orders={orders} ipoOrders={ipoOrders} onCancelOrder={handleCancelOrder} optionsTicker={optionsTicker} />
+        return <TradeView orders={orders} ipoOrders={ipoOrders} onCancelOrder={handleCancelOrder} optionsTicker={optionsTicker} onOrderSubmit={handleOrderSubmit} />
       case 'assets':
         return (
           <AssetsView
