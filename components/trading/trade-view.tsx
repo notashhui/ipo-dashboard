@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Search, Bell, Filter, Clock, Trash2, TrendingUp, ShieldCheck, ChevronRight, PieChart, ChevronLeft, X, Minus, Plus, ArrowLeft, ChevronUp, ChevronDown, ShieldAlert } from 'lucide-react'
 import type { Order, IpoOrder } from '@/lib/types'
 import { IpoOrderCard } from './ipo-order-card'
@@ -15,6 +15,9 @@ interface TradeViewProps {
 
 export function TradeView({ orders = [], ipoOrders = [], onCancelOrder, optionsTicker, onOrderSubmit }: TradeViewProps) {
   const [activeTab, setActiveTab] = useState<'active' | 'logs' | 'ipo' | 'options'>('active')
+  // Local cache of options orders — guarantees immediate visibility in Active Desk
+  // even before the parent's `orders` prop propagates. Deduped by id when combined.
+  const [localOptionsOrders, setLocalOptionsOrders] = useState<Order[]>([])
 
   useEffect(() => {
     if (optionsTicker) setActiveTab('options')
@@ -27,8 +30,19 @@ export function TradeView({ orders = [], ipoOrders = [], onCancelOrder, optionsT
     return () => clearInterval(timer)
   }, [])
 
-  const pendingOrders = orders.filter(o => ['pending', 'submitted', 'partially_filled'].includes(o.status))
-  const completedOrders = orders.filter(o => o.status === 'filled' || o.status === 'cancelled')
+  // Called by OptionsPanel — adds to local cache immediately, also propagates up for persistence
+  const handleOptionsOrderSubmit = useCallback((order: Order) => {
+    setLocalOptionsOrders(prev => [order, ...prev])
+    onOrderSubmit?.(order)
+  }, [onOrderSubmit])
+
+  // Merge stock orders (from props) + local options orders, deduped by id
+  const propOrderIds = new Set(orders.map(o => o.id))
+  const uniqueLocalOptions = localOptionsOrders.filter(o => !propOrderIds.has(o.id))
+  const allOrders = [...orders, ...uniqueLocalOptions]
+
+  const pendingOrders = allOrders.filter(o => ['pending', 'submitted', 'partially_filled'].includes(o.status))
+  const completedOrders = allOrders.filter(o => o.status === 'filled' || o.status === 'cancelled')
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString('en-US', { 
@@ -217,7 +231,7 @@ export function TradeView({ orders = [], ipoOrders = [], onCancelOrder, optionsT
             ))
           )
         ) : (
-          <OptionsPanel key={optionsTicker ?? '__selector__'} ticker={optionsTicker} onOrderSubmit={onOrderSubmit} onOrderPlaced={() => setActiveTab('active')} />
+          <OptionsPanel key={optionsTicker ?? '__selector__'} ticker={optionsTicker} onOrderSubmit={handleOptionsOrderSubmit} onOrderPlaced={() => setActiveTab('active')} />
         )}
       </div>
 
@@ -303,7 +317,7 @@ function OrderCard({
             <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Qty / Volume</p>
             <p className="text-sm font-black">
               <span className="text-white">{order.quantity}</span>
-              <span className="text-zinc-600 text-[10px] ml-1">SHARES</span>
+              <span className="text-zinc-600 text-[10px] ml-1">{order.id.startsWith('opt-') ? 'CONTRACTS' : 'SHARES'}</span>
             </p>
           </div>
           <div>
@@ -390,7 +404,7 @@ function ExecutionLogCard({
           <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Qty / Volume</p>
           <p className="text-sm font-black">
             <span className="text-white">{order.quantity}</span>
-            <span className="text-zinc-600 text-[10px] ml-1">SHARES</span>
+            <span className="text-zinc-600 text-[10px] ml-1">{order.id.startsWith('opt-') ? 'CONTRACTS' : 'SHARES'}</span>
           </p>
         </div>
         <div>
