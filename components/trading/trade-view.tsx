@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Search, Bell, Filter, Clock, Trash2, TrendingUp, ShieldCheck, ChevronRight, PieChart, ChevronLeft, X, Minus, Plus, ArrowLeft, ChevronUp, ChevronDown, ShieldAlert } from 'lucide-react'
+import { Search, Bell, Filter, Clock, Trash2, TrendingUp, ShieldCheck, ChevronRight, ChevronLeft, X, Minus, Plus, ArrowLeft, ChevronUp, ChevronDown, ShieldAlert } from 'lucide-react'
 import type { Order, IpoOrder } from '@/lib/types'
 import { IpoOrderCard } from './ipo-order-card'
 
@@ -18,6 +18,8 @@ export function TradeView({ orders = [], ipoOrders = [], onCancelOrder, optionsT
   // Local cache of options orders — guarantees immediate visibility in Active Desk
   // even before the parent's `orders` prop propagates. Deduped by id when combined.
   const [localOptionsOrders, setLocalOptionsOrders] = useState<Order[]>([])
+  const [activeSubFilter, setActiveSubFilter] = useState<'all' | 'stocks' | 'options'>('all')
+  const [logsSubFilter, setLogsSubFilter] = useState<'all' | 'stocks' | 'options'>('all')
 
   useEffect(() => {
     if (optionsTicker) setActiveTab('options')
@@ -52,6 +54,8 @@ export function TradeView({ orders = [], ipoOrders = [], onCancelOrder, optionsT
       second: '2-digit' 
     })
   }
+
+  const isOptionsOrder = (order: Order) => order.refId.startsWith('OPT')
 
   // Stock avatar colors
   const getStockColor = (symbol: string) => {
@@ -159,64 +163,100 @@ export function TradeView({ orders = [], ipoOrders = [], onCancelOrder, optionsT
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
             )}
           </button>
-          <button
-            onClick={() => setActiveTab('options')}
-            className={`pb-3 relative flex items-center gap-2 transition-all ${
-              activeTab === 'options' ? 'text-purple-400' : 'text-zinc-600'
-            }`}
-          >
-            <PieChart size={12} className="shrink-0" />
-            <span className="text-[11px] font-black uppercase tracking-widest">Options</span>
-            {activeTab === 'options' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-400" />
-            )}
-          </button>
         </div>
       </div>
 
       {/* Content */}
       <div className="px-4 space-y-4">
-        {activeTab === 'active' ? (
-          pendingOrders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center mb-4">
-                <Clock size={28} className="text-zinc-700" />
-              </div>
-              <p className="text-sm font-bold text-zinc-600">No Active Orders</p>
-              <p className="text-[10px] text-zinc-700 mt-1 uppercase tracking-widest">Place a limit order to see it here</p>
-            </div>
-          ) : (
-            pendingOrders.map((order) => (
-              <OrderCard 
-                key={order.id} 
-                order={order} 
-                currentTime={currentTime}
-                getStockColor={getStockColor}
-                formatTime={formatTime}
-                onCancel={onCancelOrder}
-              />
-            ))
+        {activeTab === 'active' ? (() => {
+          const filtered = pendingOrders.filter(o =>
+            activeSubFilter === 'all' ? true :
+            activeSubFilter === 'options' ? isOptionsOrder(o) : !isOptionsOrder(o)
           )
-        ) : activeTab === 'logs' ? (
-          completedOrders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center mb-4">
-                <TrendingUp size={28} className="text-zinc-700" />
+          return (
+            <>
+              {/* Sub-filter pills */}
+              <div className="flex gap-2">
+                {(['all', 'stocks', 'options'] as const).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setActiveSubFilter(f)}
+                    className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+                      activeSubFilter === f
+                        ? f === 'options' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                          : 'bg-zinc-700 text-white'
+                        : 'bg-zinc-900 text-zinc-600 border border-zinc-800'
+                    }`}
+                  >{f}</button>
+                ))}
               </div>
-              <p className="text-sm font-bold text-zinc-600">No Execution History</p>
-              <p className="text-[10px] text-zinc-700 mt-1 uppercase tracking-widest">Completed orders will appear here</p>
-            </div>
-          ) : (
-            completedOrders.map((order) => (
-              <ExecutionLogCard 
-                key={order.id} 
-                order={order}
-                getStockColor={getStockColor}
-                formatTime={formatTime}
-              />
-            ))
+              {filtered.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center mb-4">
+                    <Clock size={28} className="text-zinc-700" />
+                  </div>
+                  <p className="text-sm font-bold text-zinc-600">No Active Orders</p>
+                  <p className="text-[10px] text-zinc-700 mt-1 uppercase tracking-widest">Place a limit order to see it here</p>
+                </div>
+              ) : (
+                filtered.map((order) => (
+                  <OrderCard
+                    key={order.id}
+                    order={order}
+                    currentTime={currentTime}
+                    getStockColor={getStockColor}
+                    formatTime={formatTime}
+                    onCancel={onCancelOrder}
+                    isOptions={isOptionsOrder(order)}
+                  />
+                ))
+              )}
+            </>
           )
-        ) : activeTab === 'ipo' ? (
+        })() : activeTab === 'logs' ? (() => {
+          const filtered = completedOrders.filter(o =>
+            logsSubFilter === 'all' ? true :
+            logsSubFilter === 'options' ? isOptionsOrder(o) : !isOptionsOrder(o)
+          )
+          return (
+            <>
+              {/* Sub-filter pills */}
+              <div className="flex gap-2">
+                {(['all', 'stocks', 'options'] as const).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setLogsSubFilter(f)}
+                    className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
+                      logsSubFilter === f
+                        ? f === 'options' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                          : 'bg-zinc-700 text-white'
+                        : 'bg-zinc-900 text-zinc-600 border border-zinc-800'
+                    }`}
+                  >{f}</button>
+                ))}
+              </div>
+              {filtered.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center mb-4">
+                    <TrendingUp size={28} className="text-zinc-700" />
+                  </div>
+                  <p className="text-sm font-bold text-zinc-600">No Execution History</p>
+                  <p className="text-[10px] text-zinc-700 mt-1 uppercase tracking-widest">Completed orders will appear here</p>
+                </div>
+              ) : (
+                filtered.map((order) => (
+                  <ExecutionLogCard
+                    key={order.id}
+                    order={order}
+                    getStockColor={getStockColor}
+                    formatTime={formatTime}
+                    isOptions={isOptionsOrder(order)}
+                  />
+                ))
+              )}
+            </>
+          )
+        })() : activeTab === 'ipo' ? (
           ipoOrders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center mb-4">
@@ -260,18 +300,20 @@ export function TradeView({ orders = [], ipoOrders = [], onCancelOrder, optionsT
 }
 
 // Active Order Card Component
-function OrderCard({ 
-  order, 
-  currentTime, 
-  getStockColor, 
+function OrderCard({
+  order,
+  currentTime,
+  getStockColor,
   formatTime,
-  onCancel 
-}: { 
+  onCancel,
+  isOptions,
+}: {
   order: Order
   currentTime: Date
   getStockColor: (symbol: string) => string
   formatTime: (date: Date) => string
   onCancel?: (orderId: string) => void
+  isOptions?: boolean
 }) {
   const statusLabel = order.status.replace('_', ' ')
   const statusColor =
@@ -289,12 +331,16 @@ function OrderCard({
             <div className="flex items-center gap-2">
               <span className="font-black text-base">{order.symbol}</span>
               <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                order.type === 'buy' 
-                  ? 'bg-[#F04438]/20 text-[#F04438]' 
+                order.type === 'buy'
+                  ? 'bg-[#F04438]/20 text-[#F04438]'
                   : 'bg-[#2E6BE6]/20 text-[#2E6BE6]'
               }`}>
                 {order.type}
               </span>
+              {isOptions
+                ? <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-purple-500/20 text-purple-400">OPTION</span>
+                : <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-blue-500/20 text-blue-400">STOCK</span>
+              }
             </div>
             <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-wide">{order.name}</p>
           </div>
@@ -317,7 +363,7 @@ function OrderCard({
             <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Qty / Volume</p>
             <p className="text-sm font-black">
               <span className="text-white">{order.quantity}</span>
-              <span className="text-zinc-600 text-[10px] ml-1">{order.id.startsWith('opt-') ? 'CONTRACTS' : 'SHARES'}</span>
+              <span className="text-zinc-600 text-[10px] ml-1">{isOptions ? 'CONTRACTS' : 'SHARES'}</span>
             </p>
           </div>
           <div>
@@ -353,17 +399,19 @@ function OrderCard({
 }
 
 // Execution Log Card Component
-function ExecutionLogCard({ 
-  order, 
-  getStockColor, 
-  formatTime 
-}: { 
+function ExecutionLogCard({
+  order,
+  getStockColor,
+  formatTime,
+  isOptions,
+}: {
   order: Order
   getStockColor: (symbol: string) => string
   formatTime: (date: Date) => string
+  isOptions?: boolean
 }) {
   const isCancelled = order.status === 'cancelled'
-  
+
   return (
     <div className="bg-zinc-900/40 rounded-2xl p-4 border border-zinc-900">
       {/* Header Row */}
@@ -376,12 +424,16 @@ function ExecutionLogCard({
             <div className="flex items-center gap-2">
               <span className="font-black text-base">{order.symbol}</span>
               <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                order.type === 'buy' 
-                  ? 'bg-[#F04438]/20 text-[#F04438]' 
+                order.type === 'buy'
+                  ? 'bg-[#F04438]/20 text-[#F04438]'
                   : 'bg-[#2E6BE6]/20 text-[#2E6BE6]'
               }`}>
                 {order.type}
               </span>
+              {isOptions
+                ? <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-purple-500/20 text-purple-400">OPTION</span>
+                : <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-blue-500/20 text-blue-400">STOCK</span>
+              }
             </div>
             <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-wide">{order.name}</p>
           </div>
@@ -404,7 +456,7 @@ function ExecutionLogCard({
           <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Qty / Volume</p>
           <p className="text-sm font-black">
             <span className="text-white">{order.quantity}</span>
-            <span className="text-zinc-600 text-[10px] ml-1">{order.id.startsWith('opt-') ? 'CONTRACTS' : 'SHARES'}</span>
+            <span className="text-zinc-600 text-[10px] ml-1">{isOptions ? 'CONTRACTS' : 'SHARES'}</span>
           </p>
         </div>
         <div>
