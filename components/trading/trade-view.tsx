@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Search, Bell, Filter, Clock, Trash2, TrendingUp, ShieldCheck, ChevronRight } from 'lucide-react'
+import { Search, Bell, Filter, Clock, Trash2, TrendingUp, ShieldCheck, ChevronRight, PieChart, ChevronLeft } from 'lucide-react'
 import type { Order, IpoOrder } from '@/lib/types'
 import { IpoOrderCard } from './ipo-order-card'
 
@@ -9,10 +9,15 @@ interface TradeViewProps {
   orders?: Order[]
   ipoOrders?: IpoOrder[]
   onCancelOrder?: (orderId: string) => void
+  optionsTicker?: string
 }
 
-export function TradeView({ orders = [], ipoOrders = [], onCancelOrder }: TradeViewProps) {
-  const [activeTab, setActiveTab] = useState<'active' | 'logs' | 'ipo'>('active')
+export function TradeView({ orders = [], ipoOrders = [], onCancelOrder, optionsTicker }: TradeViewProps) {
+  const [activeTab, setActiveTab] = useState<'active' | 'logs' | 'ipo' | 'options'>('active')
+
+  useEffect(() => {
+    if (optionsTicker) setActiveTab('options')
+  }, [optionsTicker])
   const [currentTime, setCurrentTime] = useState(new Date())
 
   // Update time every second for the live clock
@@ -139,6 +144,18 @@ export function TradeView({ orders = [], ipoOrders = [], onCancelOrder }: TradeV
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white" />
             )}
           </button>
+          <button
+            onClick={() => setActiveTab('options')}
+            className={`pb-3 relative flex items-center gap-2 transition-all ${
+              activeTab === 'options' ? 'text-purple-400' : 'text-zinc-600'
+            }`}
+          >
+            <PieChart size={12} className="shrink-0" />
+            <span className="text-[11px] font-black uppercase tracking-widest">Options</span>
+            {activeTab === 'options' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-400" />
+            )}
+          </button>
         </div>
       </div>
 
@@ -184,7 +201,7 @@ export function TradeView({ orders = [], ipoOrders = [], onCancelOrder }: TradeV
               />
             ))
           )
-        ) : (
+        ) : activeTab === 'ipo' ? (
           ipoOrders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center mb-4">
@@ -198,6 +215,8 @@ export function TradeView({ orders = [], ipoOrders = [], onCancelOrder }: TradeV
               <IpoOrderCard key={order.id} order={order} />
             ))
           )
+        ) : (
+          <OptionsPanel ticker={optionsTicker} />
         )}
       </div>
 
@@ -389,6 +408,193 @@ function ExecutionLogCard({
         <span className="text-zinc-800">•</span>
         <span>{order.orderType.toUpperCase()} ROUTING</span>
       </div>
+    </div>
+  )
+}
+
+// ─── Options Panel ────────────────────────────────────────────────────────────
+// Two-step flow:
+//   1. No underlying selected → show UnderlyingSelector
+//   2. Underlying selected    → show OptionsChain (My Positions + chain table)
+// The two blocks are mutually exclusive (if/else), never rendered simultaneously.
+
+const UNDERLYINGS = [
+  { symbol: 'NVDA', name: 'NVIDIA Corp',    color: 'bg-[#F04438]', price: 135.58, change: +2.45 },
+  { symbol: 'TSLA', name: 'Tesla Inc',      color: 'bg-emerald-600', price: 248.42, change: -1.12 },
+  { symbol: 'AAPL', name: 'Apple Inc',      color: 'bg-amber-800',  price: 213.07, change: +0.84 },
+  { symbol: 'MSFT', name: 'Microsoft Corp', color: 'bg-blue-600',   price: 415.20, change: +1.33 },
+  { symbol: 'GOOGL', name: 'Alphabet Inc',  color: 'bg-blue-500',   price: 175.88, change: -0.57 },
+]
+
+const MOCK_POSITIONS: Record<string, { expiry: string; strike: number; type: 'call' | 'put'; qty: number; avgCost: number; currentVal: number }[]> = {
+  TSLA: [
+    { expiry: 'Mar 21', strike: 250, type: 'call', qty: 5, avgCost: 4.20, currentVal: 6.80 },
+    { expiry: 'Apr 18', strike: 230, type: 'put',  qty: 3, avgCost: 7.50, currentVal: 5.10 },
+  ],
+  NVDA: [
+    { expiry: 'Mar 21', strike: 140, type: 'call', qty: 10, avgCost: 3.10, currentVal: 5.40 },
+  ],
+}
+
+const MOCK_CHAINS: Record<string, { strike: number; call: { bid: number; ask: number; iv: string }; put: { bid: number; ask: number; iv: string } }[]> = {
+  NVDA:  [
+    { strike: 130, call: { bid: 8.20, ask: 8.50, iv: '42%' }, put: { bid: 2.10, ask: 2.30, iv: '38%' } },
+    { strike: 135, call: { bid: 5.40, ask: 5.70, iv: '40%' }, put: { bid: 3.90, ask: 4.10, iv: '41%' } },
+    { strike: 140, call: { bid: 3.10, ask: 3.30, iv: '39%' }, put: { bid: 6.50, ask: 6.80, iv: '43%' } },
+    { strike: 145, call: { bid: 1.60, ask: 1.80, iv: '41%' }, put: { bid: 9.80, ask: 10.10, iv: '45%' } },
+    { strike: 150, call: { bid: 0.70, ask: 0.85, iv: '44%' }, put: { bid: 13.40, ask: 13.80, iv: '48%' } },
+  ],
+  TSLA: [
+    { strike: 235, call: { bid: 18.50, ask: 19.10, iv: '55%' }, put: { bid: 4.20, ask: 4.60, iv: '50%' } },
+    { strike: 245, call: { bid: 11.80, ask: 12.30, iv: '53%' }, put: { bid: 7.40, ask: 7.80, iv: '52%' } },
+    { strike: 250, call: { bid:  8.60, ask:  9.00, iv: '51%' }, put: { bid: 9.90, ask: 10.30, iv: '53%' } },
+    { strike: 260, call: { bid:  4.10, ask:  4.50, iv: '52%' }, put: { bid: 15.20, ask: 15.80, iv: '55%' } },
+    { strike: 270, call: { bid:  1.70, ask:  2.00, iv: '54%' }, put: { bid: 21.50, ask: 22.10, iv: '57%' } },
+  ],
+}
+const DEFAULT_CHAIN = [
+  { strike: 100, call: { bid: 5.00, ask: 5.30, iv: '40%' }, put: { bid: 5.00, ask: 5.30, iv: '40%' } },
+  { strike: 105, call: { bid: 2.50, ask: 2.80, iv: '39%' }, put: { bid: 7.50, ask: 7.80, iv: '41%' } },
+]
+
+function OptionsPanel({ ticker }: { ticker?: string }) {
+  const [selectedUnderlying, setSelectedUnderlying] = useState<string | null>(ticker ?? null)
+
+  // If a ticker is passed via prop, jump straight to the chain view
+  useEffect(() => {
+    if (ticker) setSelectedUnderlying(ticker)
+  }, [ticker])
+
+  // ── Step 1: no underlying chosen yet ────────────────────────────────────────
+  if (!selectedUnderlying) {
+    return (
+      <div className="space-y-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Underlying Selector</p>
+          <p className="text-[9px] text-zinc-700 uppercase tracking-widest mt-0.5">Choose a stock to view its options chain</p>
+        </div>
+
+        {UNDERLYINGS.map((u) => (
+          <button
+            key={u.symbol}
+            onClick={() => setSelectedUnderlying(u.symbol)}
+            className="w-full flex items-center gap-3 bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 active:scale-[0.98] transition-transform"
+          >
+            <div className={`w-10 h-10 rounded-xl ${u.color} flex items-center justify-center shrink-0`}>
+              <span className="text-white font-black text-[10px]">{u.symbol}</span>
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-black">{u.symbol}</p>
+              <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-wide">{u.name}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm font-black tabular-nums">${u.price.toFixed(2)}</p>
+              <p className={`text-[10px] font-black tabular-nums ${u.change >= 0 ? 'text-emerald-500' : 'text-[#F04438]'}`}>
+                {u.change >= 0 ? '+' : ''}{u.change.toFixed(2)}%
+              </p>
+            </div>
+            <ChevronRight size={16} className="text-zinc-700 shrink-0" />
+          </button>
+        ))}
+      </div>
+    )
+  }
+
+  // ── Step 2: underlying selected — show positions + chain ────────────────────
+  const positions = MOCK_POSITIONS[selectedUnderlying] ?? []
+  const chain = MOCK_CHAINS[selectedUnderlying] ?? DEFAULT_CHAIN
+  const underlying = UNDERLYINGS.find(u => u.symbol === selectedUnderlying)
+
+  return (
+    <div className="space-y-5">
+      {/* Back button + title */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => setSelectedUnderlying(null)}
+          className="w-8 h-8 rounded-full bg-zinc-900 flex items-center justify-center active:scale-90 transition-transform"
+        >
+          <ChevronLeft size={16} className="text-zinc-400" />
+        </button>
+        <div>
+          <p className="text-xs font-black uppercase tracking-widest text-purple-400">
+            {selectedUnderlying} · Options
+          </p>
+          {underlying && (
+            <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-wide">{underlying.name}</p>
+          )}
+        </div>
+        <div className="ml-auto px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20">
+          <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest">Mar 21</span>
+        </div>
+      </div>
+
+      {/* My Positions — only if the user holds options on this underlying */}
+      {positions.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">My Positions</p>
+          {positions.map((pos, i) => {
+            const pl = (pos.currentVal - pos.avgCost) * pos.qty * 100
+            const plPct = ((pos.currentVal - pos.avgCost) / pos.avgCost) * 100
+            const isProfit = pl >= 0
+            return (
+              <div key={i} className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-3 flex items-center gap-3">
+                <div className={`px-2 py-1 rounded text-[9px] font-black uppercase tracking-widest ${
+                  pos.type === 'call' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-[#F04438]/15 text-[#F04438]'
+                }`}>
+                  {pos.type}
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-black">{selectedUnderlying} ${pos.strike} {pos.expiry}</p>
+                  <p className="text-[10px] text-zinc-600 font-bold">
+                    {pos.qty} contracts · avg ${pos.avgCost.toFixed(2)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-black tabular-nums">${pos.currentVal.toFixed(2)}</p>
+                  <p className={`text-[10px] font-black tabular-nums ${isProfit ? 'text-emerald-500' : 'text-[#F04438]'}`}>
+                    {isProfit ? '+' : ''}${pl.toFixed(0)} ({isProfit ? '+' : ''}{plPct.toFixed(1)}%)
+                  </p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Options Chain */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Options Chain</p>
+
+        {/* Column headers */}
+        <div className="grid grid-cols-7 text-[9px] font-black uppercase tracking-widest text-zinc-600 px-1">
+          <span className="col-span-3 text-center">Call</span>
+          <span className="text-center">Strike</span>
+          <span className="col-span-3 text-center">Put</span>
+        </div>
+        <div className="grid grid-cols-7 text-[9px] font-bold uppercase tracking-widest text-zinc-700 px-1">
+          <span>Bid</span><span>Ask</span><span>IV</span>
+          <span />
+          <span>Bid</span><span>Ask</span><span>IV</span>
+        </div>
+
+        {chain.map((row) => (
+          <div key={row.strike} className="grid grid-cols-7 text-[11px] font-bold px-1 items-center gap-x-1">
+            <span className="text-emerald-400">{row.call.bid}</span>
+            <span className="text-emerald-400">{row.call.ask}</span>
+            <span className="text-zinc-500">{row.call.iv}</span>
+            <span className="text-center font-black text-white bg-zinc-900 rounded px-1 py-0.5 text-[10px]">
+              {row.strike}
+            </span>
+            <span className="text-[#F04438]">{row.put.bid}</span>
+            <span className="text-[#F04438]">{row.put.ask}</span>
+            <span className="text-zinc-500">{row.put.iv}</span>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-[9px] text-zinc-700 uppercase tracking-widest text-center pt-1">
+        Options trading involves risk · Prices are indicative
+      </p>
     </div>
   )
 }

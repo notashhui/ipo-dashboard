@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import type { ViewType, Stock, Order } from '@/lib/types'
 import { mockStocks } from '@/lib/mock-data'
 import { useIpoOrders } from '@/hooks/use-ipo-orders'
@@ -30,17 +31,36 @@ import { IndustryChainModule } from '@/components/trading/industry-chain-module'
 import { NewsDetail, sampleNewsArticle } from '@/components/trading/news-detail'
 import type { NewsItem } from '@/components/trading/global-news-center'
 
-export default function TradingApp() {
+function TradingApp() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [currentView, setCurrentView] = useState<ViewType>('square')
   const [currentTab, setCurrentTab] = useState<TabType>('square')
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null)
   const [stockBadge, setStockBadge] = useState<string | undefined>(undefined)
   const [selectedNews, setSelectedNews] = useState<NewsItem | null>(null)
   const [viewHistory, setViewHistory] = useState<ViewType[]>(['square'])
+  const [optionsTicker, setOptionsTicker] = useState<string | undefined>(undefined)
   const { orders, addOrder, cancelOrder } = useStockOrders()
   const { holdings } = useHoldings()
   const { ipoOrders, addIpoOrder } = useIpoOrders()
   const { actions, getUpcomingActionForTicker, getAppliedActionForTickerToday } = useCorporateActions()
+
+  // Read URL search params and navigate accordingly
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    const assetClass = searchParams.get('assetClass')
+    const ticker = searchParams.get('ticker')
+    if (tab === 'trade') {
+      setCurrentTab('trade')
+      setCurrentView('trade')
+      setViewHistory(['trade'])
+      setSelectedStock(null)
+      setStockBadge(undefined)
+      setOptionsTicker(assetClass === 'options' ? (ticker ?? undefined) : undefined)
+      router.replace('/')
+    }
+  }, [searchParams, router])
 
   // Calculate cash based on initial total minus securities and earn
   const initialTotal = 1284560
@@ -167,7 +187,7 @@ export default function TradingApp() {
       case 'markets':
         return <MarketsDashboard onNavigate={navigateTo} onStockSelect={handleStockSelect} />
       case 'trade':
-        return <TradeView orders={orders} ipoOrders={ipoOrders} onCancelOrder={handleCancelOrder} />
+        return <TradeView orders={orders} ipoOrders={ipoOrders} onCancelOrder={handleCancelOrder} optionsTicker={optionsTicker} />
       case 'assets':
         return (
           <AssetsView
@@ -249,5 +269,13 @@ export default function TradingApp() {
         <BottomNav currentTab={currentTab} onTabChange={handleTabChange} />
       )}
     </div>
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <TradingApp />
+    </Suspense>
   )
 }
