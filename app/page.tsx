@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import type { ViewType, Stock, Order, Holding } from '@/lib/types'
 import { mockStocks } from '@/lib/mock-data'
 import { useIpoOrders } from '@/hooks/use-ipo-orders'
@@ -65,7 +66,9 @@ const initialHoldings: Holding[] = [
   }
 ]
 
-export default function TradingApp() {
+function TradingApp() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [currentView, setCurrentView] = useState<ViewType>('square')
   const [currentTab, setCurrentTab] = useState<TabType>('square')
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null)
@@ -74,7 +77,29 @@ export default function TradingApp() {
   const [viewHistory, setViewHistory] = useState<ViewType[]>(['square'])
   const [orders, setOrders] = useState<Order[]>([])
   const [holdings, setHoldings] = useState<Holding[]>(initialHoldings)
+  const [optionsTicker, setOptionsTicker] = useState<string | undefined>(undefined)
   const { ipoOrders, addIpoOrder } = useIpoOrders()
+
+  // Read URL search params and navigate accordingly
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    const assetClass = searchParams.get('assetClass')
+    const ticker = searchParams.get('ticker')
+    if (tab === 'trade') {
+      setCurrentTab('trade')
+      setCurrentView('trade')
+      setViewHistory(['trade'])
+      setSelectedStock(null)
+      setStockBadge(undefined)
+      if (assetClass === 'options') {
+        setOptionsTicker(ticker ?? undefined)
+      } else {
+        setOptionsTicker(undefined)
+      }
+      // Clean the URL so back-navigation works cleanly
+      router.replace('/')
+    }
+  }, [searchParams, router])
 
   // Calculate cash based on initial total minus securities and earn
   const initialTotal = 1284560
@@ -283,7 +308,7 @@ export default function TradingApp() {
       case 'markets':
         return <MarketsDashboard onNavigate={navigateTo} onStockSelect={handleStockSelect} />
       case 'trade':
-        return <TradeView orders={orders} ipoOrders={ipoOrders} onCancelOrder={handleCancelOrder} />
+        return <TradeView orders={orders} ipoOrders={ipoOrders} onCancelOrder={handleCancelOrder} optionsTicker={optionsTicker} />
       case 'assets':
         return <AssetsView holdings={holdings} cashBalance={cashBalance} onStockSelect={handleStockSelectBySymbol} />
       
@@ -353,5 +378,13 @@ export default function TradingApp() {
         <BottomNav currentTab={currentTab} onTabChange={handleTabChange} />
       )}
     </div>
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <TradingApp />
+    </Suspense>
   )
 }

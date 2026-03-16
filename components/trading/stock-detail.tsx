@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useRouter } from 'next/navigation'
 import { ChevronLeft, Star, Share2, TrendingUp, Clock, LayoutGrid, PieChart, Activity } from 'lucide-react'
 import type { Stock, StockMetrics, CapitalFlow, Order } from '@/lib/types'
 import { mockStockMetrics, mockCapitalFlow } from '@/lib/mock-data'
@@ -20,15 +21,16 @@ interface StockDetailProps {
 const intervals = ['Intraday', '5D', 'Daily', 'Weekly', 'Monthly', 'Yearly', '1Min']
 const tabs = ['Quote', 'Overview', 'Financials']
 
-export function StockDetail({ 
-  stock, 
-  badge, 
-  badgeColor = 'from-blue-600 to-purple-600', 
+export function StockDetail({
+  stock,
+  badge,
+  badgeColor = 'from-blue-600 to-purple-600',
   onBack,
   onOrderSubmit,
   onNavigateToTrade,
   availableBalance = 1284560
 }: StockDetailProps) {
+  const router = useRouter()
   const [activeInterval, setActiveInterval] = useState('Daily')
   const [activeTab, setActiveTab] = useState('Quote')
   const [mounted, setMounted] = useState(false)
@@ -278,7 +280,10 @@ export function StockDetail({
                   <LayoutGrid size={16} className="shrink-0 text-zinc-600 group-hover:text-white" />
                   <span className="text-[7px] font-black uppercase tracking-widest text-zinc-600 truncate">More</span>
                 </div>
-                <div className="flex flex-col items-center gap-1 cursor-pointer group min-w-0">
+                <div
+                  className="flex flex-col items-center gap-1 cursor-pointer group min-w-0"
+                  onClick={() => router.push(`/?tab=trade&assetClass=options&ticker=${stock.symbol}`)}
+                >
                   <PieChart size={16} className="shrink-0 text-zinc-600 group-hover:text-white" />
                   <span className="text-[7px] font-black uppercase tracking-widest text-zinc-600 truncate">Options</span>
                 </div>
